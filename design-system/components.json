@@ -1,0 +1,147 @@
+{
+  "name": "@unlimit/ui",
+  "version": "1.0.0",
+  "import-base": "@unlimit/ui",
+  "convention": "All components import as named exports: import { Button } from '@unlimit/ui'",
+
+  "components": {
+    "Button": {
+      "description": "Primary action element.",
+      "props": {
+        "variant":   { "values": ["primary", "secondary", "ghost", "destructive"], "default": "primary" },
+        "size":      { "values": ["sm", "md", "lg"], "default": "md" },
+        "disabled":  { "type": "boolean" },
+        "loading":   { "type": "boolean", "note": "Renders Spinner and disables click when true" },
+        "iconLeft":  { "type": "ReactNode" },
+        "iconRight": { "type": "ReactNode" },
+        "onClick":   { "type": "() => void" },
+        "children":  { "type": "ReactNode" }
+      },
+      "a11y": "Renders <button>; provide aria-label when children are icon-only."
+    },
+
+    "IconButton": {
+      "description": "Icon-only button. Use when a label would be redundant.",
+      "props": {
+        "variant":  { "values": ["primary", "secondary", "ghost", "destructive"], "default": "ghost" },
+        "size":     { "values": ["sm", "md", "lg"], "default": "md" },
+        "icon":     { "type": "ReactNode", "required": true },
+        "aria-label": { "type": "string", "required": true },
+        "disabled": { "type": "boolean" },
+        "onClick":  { "type": "() => void" }
+      },
+      "a11y": "aria-label is required."
+    },
+
+    "Input": {
+      "description": "Text input with optional label and error message.",
+      "props": {
+        "label":       { "type": "string" },
+        "value":       { "type": "string" },
+        "onChange":    { "type": "(value: string) => void" },
+        "placeholder": { "type": "string" },
+        "type":        { "values": ["text", "email", "password", "number", "tel"], "default": "text" },
+        "error":       { "type": "string", "note": "Renders error state + message" },
+        "disabled":    { "type": "boolean" },
+        "required":    { "type": "boolean" }
+      },
+      "a11y": "Label is associated via htmlFor; error is announced via aria-describedby + role=alert."
+    },
+
+    "Select": {
+      "description": "Dropdown select.",
+      "props": {
+        "label":    { "type": "string" },
+        "value":    { "type": "string" },
+        "onChange": { "type": "(value: string) => void" },
+        "options":  { "type": "Array<{ value: string; label: string }>" },
+        "disabled": { "type": "boolean" }
+      },
+      "a11y": "Native-like keyboard nav; label is associated via htmlFor."
+    },
+
+    "Badge": {
+      "description": "Small status indicator.",
+      "props": {
+        "variant":  { "values": ["neutral", "success", "warning", "danger", "info"], "default": "neutral" },
+        "children": { "type": "ReactNode" }
+      },
+      "a11y": "Purely visual; semantics should come from surrounding text."
+    },
+
+    "Card": {
+      "description": "Container with padding, border and shadow.",
+      "props": {
+        "padding":     { "values": ["sm", "md", "lg"], "default": "md" },
+        "interactive": { "type": "boolean", "note": "Adds hover/focus ring; role=button when true" },
+        "selected":    { "type": "boolean", "note": "Visual selected state; sets aria-pressed=true when interactive" },
+        "onClick":     { "type": "() => void" },
+        "children":    { "type": "ReactNode" }
+      },
+      "a11y": "When interactive=true, renders as <button> with keyboard support."
+    },
+
+    "Modal": {
+      "description": "Dialog overlay.",
+      "props": {
+        "open":     { "type": "boolean" },
+        "onClose":  { "type": "() => void" },
+        "title":    { "type": "string", "required": true },
+        "children": { "type": "ReactNode" }
+      },
+      "a11y": "role=dialog, aria-modal, focus trap, Escape closes, title used as aria-labelledby."
+    },
+
+    "Spinner": {
+      "description": "Loading indicator.",
+      "props": {
+        "size":  { "values": ["sm", "md", "lg"], "default": "md" },
+        "label": { "type": "string", "default": "Loading", "note": "Announced via aria-label" }
+      },
+      "a11y": "role=status + aria-live=polite."
+    },
+
+    "Skeleton": {
+      "description": "Loading placeholder with shimmer.",
+      "props": {
+        "variant": { "values": ["text", "rect", "circle"], "default": "rect" },
+        "width":   { "type": "number | string" },
+        "height":  { "type": "number | string" }
+      },
+      "a11y": "aria-hidden=true; surrounding container should have aria-busy=true."
+    },
+
+    "Icon": {
+      "description": "Icon from the shared icon set.",
+      "props": {
+        "name":       { "values": ["visa", "mastercard", "amex", "check", "x", "upload", "chevron-right", "chevron-left", "chevron-down", "alert", "info", "trash"], "required": true },
+        "size":       { "values": ["sm", "md", "lg"], "default": "md" },
+        "aria-label": { "type": "string", "note": "Required if icon conveys meaning without adjacent text; otherwise aria-hidden=true" }
+      },
+      "a11y": "Decorative by default (aria-hidden); provide aria-label when meaningful."
+    },
+
+    "Stepper": {
+      "description": "Horizontal step progress indicator.",
+      "props": {
+        "steps":    { "type": "Array<{ id: string; label: string }>" },
+        "current":  { "type": "string", "note": "id of the current step" },
+        "status":   { "type": "Record<string, 'pending' | 'active' | 'complete' | 'error'>" }
+      },
+      "a11y": "role=list with aria-current=step on the active item."
+    },
+
+    "FileUpload": {
+      "description": "Drag-and-drop file picker with fallback click-to-browse.",
+      "props": {
+        "accept":    { "type": "string[]", "note": "MIME types or extensions, e.g. ['application/pdf', '.jpg']" },
+        "maxSizeMb": { "type": "number" },
+        "multiple":  { "type": "boolean" },
+        "onFiles":   { "type": "(files: File[]) => void" },
+        "error":     { "type": "string" },
+        "disabled":  { "type": "boolean" }
+      },
+      "a11y": "Label wraps a visually-hidden <input type=file>; drop zone has role=button and keyboard activation."
+    }
+  }
+}
