@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
-import { DesignSystemModule } from './design-system/design-system.module';
+
+import { DesignSystemModule } from '@/design-system/design-system.module';
 
 /**
  * Root application module.
