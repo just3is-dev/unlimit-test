@@ -245,7 +245,7 @@ The pipeline architecture, reliability mechanisms, and ADRs reflect decisions ma
 collaboratively with AI tooling throughout the process.
 
 **Model:** Claude (Anthropic) — `claude-sonnet-4-6` for Analyzer and Generator,
-`claude-haiku-4-5` for Parser and the optional LLM judge.
+`claude-haiku-4-5` for Parser and the optional QualityEvaluator.
 
 **Where AI was used:**
 

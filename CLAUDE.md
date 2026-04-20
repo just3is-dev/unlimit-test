@@ -51,7 +51,7 @@ retry-with-feedback via `SchemaRetry`.
 | `src/agents/` | `BaseAgent`, `ParserAgent`, `AnalyzerAgent`, `GeneratorAgent`, `ValidatorAgent` |
 | `src/llm/` | `LLMProvider` interface, `AnthropicProvider` (Vercel AI SDK), `PromptLoaderService` |
 | `src/reliability/` | `SchemaRetry`, `HallucinationGuard`, `StateCoverageGuard`, `QualityEvaluator` (opt-in via `USE_QUALITY_EVALUATOR=true`) |
-| `prompts/` | Prompt files (`01-parser.md` … `04-validator-judge.md`) — loaded at runtime, not inlined |
+| `prompts/` | Prompt files (`01-parser.md` … `04-quality-evaluator.md`) — loaded at runtime, not inlined |
 | `design-system/` | `tokens.json` + `components.json` — single source of truth for the DS allow-lists |
 | `examples/` | Three worked examples (`01-payment-card`, `02-transaction-table`, `03-kyc-wizard`) each with `input.txt`, `output.json`, `Component.tsx` |
 | `docs/adr/` | Three ADRs documenting key architectural decisions |
@@ -63,7 +63,7 @@ retry-with-feedback via `SchemaRetry`.
 - **Components import**: `import { Button } from '@unlimit/ui'` (see `components.json` `import-base`).
 - **States have two kinds**: `css` (hover, focus-visible, selected, disabled — expressed as pseudo-classes/attributes) and `functional` (loading, error, deleting — expressed as conditional JSX). `StateCoverageGuard` uses different regex patterns per kind.
 - **Prompts are files**: `PromptLoaderService` reads `prompts/*.md` and injects `{{variable}}` placeholders at call time. Never inline prompts.
-- **Models per stage** (cost-aware): Parser → `MODEL_PARSER` (Haiku), Analyzer/Generator → `MODEL_ANALYZER`/`MODEL_GENERATOR` (Sonnet), Judge → `MODEL_QUALITY_EVALUATOR` (Haiku). All overridable via ENV.
+- **Models per stage** (cost-aware): Parser → `MODEL_PARSER` (Haiku), Analyzer/Generator → `MODEL_ANALYZER`/`MODEL_GENERATOR` (Sonnet), QualityEvaluator → `MODEL_QUALITY_EVALUATOR` (Haiku). All overridable via ENV.
 
 ### Reliability sub-system (`src/reliability/`)
 

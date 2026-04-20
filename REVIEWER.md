@@ -47,7 +47,7 @@ component.
 
 ---
 
-## Optional: LLM Judge
+## Optional: QualityEvaluator
 
 To enable the opt-in 5th stage (qualitative a11y scoring 0–100):
 
@@ -55,7 +55,7 @@ To enable the opt-in 5th stage (qualitative a11y scoring 0–100):
 USE_QUALITY_EVALUATOR=true npm run cli -- examples/01-payment-card/input.txt
 ```
 
-The output will include a `judge` field with a score breakdown. Uses Haiku to keep
+The output will include a `quality` field with a score breakdown. Uses Haiku to keep
 cost low — see ADR-003.
 
 ---

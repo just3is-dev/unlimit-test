@@ -18,7 +18,7 @@ import { FinalOutput } from './pipeline.schemas';
  * Two interfaces (HTTP, CLI) are thin facades over this service.
  *
  * Flow:
- *   description → Parser → Analyzer → Generator → Validator → [LLMJudge] → FinalOutput
+ *   description → Parser → Analyzer → Generator → Validator → [QualityEvaluator] → FinalOutput
  *
  * Each stage writes its output to PipelineContext. Stages are sequential
  * (each depends on the previous). The context is discarded after the call.

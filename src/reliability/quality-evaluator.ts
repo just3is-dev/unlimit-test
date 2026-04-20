@@ -54,7 +54,7 @@ export class QualityEvaluator {
       tokens_used,
     });
 
-    const system = this.prompts.load('04-validator-judge', { judge_input: evaluatorInput });
+    const system = this.prompts.load('04-quality-evaluator', { evaluator_input: evaluatorInput });
 
     const result = await this.schemaRetry.run(async (feedbackPrompt?: string) => {
       const prompt = feedbackPrompt
