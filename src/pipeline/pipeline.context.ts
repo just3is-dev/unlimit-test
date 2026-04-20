@@ -1,4 +1,7 @@
 import { DesignSystemContext } from '@/design-system/design-system.types';
+import { A11yResult } from '@/reliability/a11y-guard';
+import { HallucinationResult } from '@/reliability/hallucination-guard';
+import { StateCoverageResult } from '@/reliability/state-coverage-guard';
 
 import {
   AnalyzerOutput,
@@ -33,6 +36,14 @@ export class PipelineContext {
   generatorOutput?: GeneratorOutput;
   validatorOutput?: ValidatorOutput;
   qualityOutput?: QualityEvaluatorOutput;
+
+  /**
+   * Guard results from the final Generator check (set by PipelineService after
+   * the retry loop). ValidatorAgent reads these instead of re-running guards.
+   */
+  hallucinationResult?: HallucinationResult;
+  coverageResult?: StateCoverageResult;
+  a11yResult?: A11yResult;
 
   constructor(input: string, dsContext: DesignSystemContext) {
     this.input = input;

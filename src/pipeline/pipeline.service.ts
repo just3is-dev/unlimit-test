@@ -28,7 +28,10 @@ import { FinalOutput } from './pipeline.schemas';
 export class PipelineService {
   private readonly logger = new Logger(PipelineService.name);
 
-  /** Max extra Generator attempts after HallucinationGuard / StateCoverageGuard failure */
+  /**
+   * How many times to retry the Generator after a guard failure.
+   * Total Generator calls = 1 (initial) + MAX_GENERATOR_RETRIES.
+   */
   private static readonly MAX_GENERATOR_RETRIES = 1;
 
   constructor(
@@ -55,33 +58,46 @@ export class PipelineService {
     this.logger.log('Stage 2/4: Analyzer');
     context.analyzerOutput = await this.analyzer.run(context.parserOutput, context);
 
-    // Stage 3 — Generator (with guard-feedback retry loop)
+    // Stage 3 — Generator with guard-feedback retry loop.
+    //
+    // Guards run AFTER every Generator call (including the last retry), so
+    // context.hallucinationResult / coverageResult / a11yResult always reflect
+    // the actual final output. ValidatorAgent reads them from context instead of
+    // re-running the same checks a second time.
     this.logger.log('Stage 3/4: Generator');
     context.generatorOutput = await this.generator.run(context.analyzerOutput, context);
 
-    for (let attempt = 0; attempt < PipelineService.MAX_GENERATOR_RETRIES; attempt++) {
+    for (let attempt = 0; attempt <= PipelineService.MAX_GENERATOR_RETRIES; attempt++) {
       const { files, states_covered } = context.generatorOutput.generated_code;
-      const halResult = this.hallucinationGuard.check(files);
-      const covResult = this.stateCoverageGuard.check(
+
+      context.hallucinationResult = this.hallucinationGuard.check(files);
+      context.coverageResult = this.stateCoverageGuard.check(
         context.requiredStates,
         states_covered,
         files,
       );
-      const a11yResult = this.a11yGuard.check(files);
+      context.a11yResult = this.a11yGuard.check(files);
 
-      if (halResult.passed && covResult.passed && a11yResult.passed) break;
+      const allPassed =
+        context.hallucinationResult.passed &&
+        context.coverageResult.passed &&
+        context.a11yResult.passed;
+
+      if (allPassed || attempt === PipelineService.MAX_GENERATOR_RETRIES) break;
 
       const feedback = [
-        halResult.feedbackPrompt,
-        covResult.feedbackPrompt,
-        a11yResult.feedbackPrompt,
+        context.hallucinationResult.feedbackPrompt,
+        context.coverageResult.feedbackPrompt,
+        context.a11yResult.feedbackPrompt,
       ]
         .filter(Boolean)
         .join('\n\n');
 
       this.logger.warn(
         `Stage 3 retry ${attempt + 1}/${PipelineService.MAX_GENERATOR_RETRIES} — ` +
-          `hallucinations=${!halResult.passed}, stateCoverage=${!covResult.passed}, a11y=${!a11yResult.passed}`,
+          `hallucinations=${!context.hallucinationResult.passed}, ` +
+          `stateCoverage=${!context.coverageResult.passed}, ` +
+          `a11y=${!context.a11yResult.passed}`,
       );
 
       context.generatorOutput = await this.generator.run(context.analyzerOutput, context, feedback);
