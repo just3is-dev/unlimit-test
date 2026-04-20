@@ -176,6 +176,8 @@ Three ADRs in `docs/adr/` document the key choices:
 
 ## Trade-offs and Known Limitations
 
+**Results are non-deterministic.** Re-running the same input may produce different coverage scores — LLM outputs vary between calls even at `temperature=0` due to sampling. The examples show one representative run.
+
 **State coverage is incomplete for complex components.** The KYC wizard has 19
 required states; the generator covers 5. The gap exists because complex multi-step
 components produce long output that hits the model's instruction-following limits.
