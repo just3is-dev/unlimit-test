@@ -68,16 +68,22 @@ Input (text description)
 └──────┬──────┘
        │
        ▼
-┌─────────────┐    Generates: React component using
-│  Generator  │    DS tokens and covering all states
-│  (Sonnet)   │
+┌─────────────┐    Generates: React component using DS tokens
+│  Generator  │    Guards run after each attempt; on failure
+│  (Sonnet)   │    feedback is fed back for one retry
 └──────┬──────┘
        │
        ▼
-┌─────────────┐    Checks: token compliance,
-│  Validator  │    state coverage, accessibility rules
-│ (no LLM)   │
+┌─────────────┐    Assembles: final validation report
+│  Validator  │    from guard results already in context
+│(deterministic)
 └──────┬──────┘
+       │
+       ▼
+┌──────────────┐   Scores: a11y quality 0–100
+│QualityEval.  │   opt-in via USE_QUALITY_EVALUATOR=true
+│(Haiku, opt-in)
+└──────┬───────┘
        │
        ▼
   FinalOutput (JSON)
@@ -168,13 +174,18 @@ sequenceDiagram
 
 ### Reliability sub-system
 
-Validation runs without any LLM calls:
+Three deterministic guards run in the Generator retry loop (no LLM calls):
 
 - **SchemaRetry** — wraps every LLM call; re-prompts with Zod error details on failure
 - **HallucinationGuard** — checks generated code against DS token and component allow-lists
 - **StateCoverageGuard** — verifies every required state is implemented in the generated code
 - **A11yGuard** — checks component-specific accessibility rules (aria-label, title, label props, etc.)
-- **QualityEvaluator** — opt-in a11y scoring via `USE_QUALITY_EVALUATOR=true` (uses Haiku)
+
+All three follow the same contract: `.check() → { passed, feedbackPrompt }`. On failure,
+their feedback prompts are combined and fed back into a Generator retry. ValidatorAgent
+assembles the final report from the guard results already stored in `PipelineContext`.
+
+**QualityEvaluator** is a separate opt-in LLM stage: `USE_QUALITY_EVALUATOR=true` (uses Haiku).
 
 ### Model strategy
 
