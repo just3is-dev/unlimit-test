@@ -46,7 +46,7 @@ npm test              # run all unit tests
 npm run test:cov      # with coverage report
 ```
 
-35 unit tests cover the reliability sub-system: `SchemaRetry`, `HallucinationGuard`, and `StateCoverageGuard`.
+53 unit tests cover the reliability sub-system: `SchemaRetry`, `HallucinationGuard`, `StateCoverageGuard`, `A11yGuard`, and `PipelineService` orchestration.
 
 ---
 
@@ -186,16 +186,19 @@ sequenceDiagram
 
 ### Reliability sub-system
 
-Three deterministic guards run in the Generator retry loop (no LLM calls):
+**SchemaRetry** wraps every LLM call — on Zod schema failure it re-prompts with per-field
+error details (up to `MAX_RETRIES` attempts). Used by every agent via `BaseAgent.generate()`.
 
-- **SchemaRetry** — wraps every LLM call; re-prompts with Zod error details on failure
+Three deterministic guards run in the Generator retry loop without any LLM calls:
+
 - **HallucinationGuard** — checks generated code against DS token and component allow-lists
 - **StateCoverageGuard** — verifies every required state is implemented in the generated code
 - **A11yGuard** — checks component-specific accessibility rules (aria-label, title, label props, etc.)
 
 All three follow the same contract: `.check() → { passed, feedbackPrompt }`. On failure,
-their feedback prompts are combined and fed back into a Generator retry. ValidatorAgent
-assembles the final report from the guard results already stored in `PipelineContext`.
+their feedback prompts are combined and fed back into a Generator retry. Results are stored
+in `PipelineContext` — ValidatorAgent reads them to assemble the final report without
+re-running the checks.
 
 **QualityEvaluator** is a separate opt-in LLM stage: `USE_QUALITY_EVALUATOR=true` (uses Haiku).
 
@@ -247,7 +250,7 @@ Three ADRs in `docs/adr/` document the key choices:
 
 **State coverage gaps surface actionable feedback.** When the Generator misses states,
 `StateCoverageGuard` identifies exactly which ones are absent and feeds that back into a
-retry. For example, the KYC wizard has 18 required states — uncovered states are not
+retry. For example, the KYC wizard has 19 required states — uncovered states are not
 silently ignored but reported in `validation.issues_found` and trigger a targeted
 re-generation. Better prompt decomposition (generate each wizard step separately)
 would improve first-pass coverage on complex components.

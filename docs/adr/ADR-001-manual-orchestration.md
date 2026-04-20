@@ -37,7 +37,7 @@ framework internals.
 
 - Zero framework lock-in — swapping models, adding stages, or changing retry logic
   is a TypeScript change only.
-- Reliability mechanisms (`SchemaRetry`, `HallucinationGuard`, `StateCoverageGuard`) fit
+- Reliability mechanisms (`SchemaRetry`, `HallucinationGuard`, `StateCoverageGuard`, `A11yGuard`) fit
   the problem exactly rather than being squeezed into a framework's extension points.
 - Infrastructure code (prompt loading, retry, schema validation) is written from
   scratch — the explicit cost accepted for the benefits above.

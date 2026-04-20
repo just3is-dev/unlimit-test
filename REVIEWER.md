@@ -8,9 +8,11 @@ the most interesting decisions.
 ## 1. Orchestration — `src/pipeline/pipeline.service.ts`
 
 The single place where all four stages are wired together. Shows the generator
-retry loop: after `GeneratorAgent` runs, `HallucinationGuard` and `StateCoverageGuard`
-inspect the output and, if either fails, pass targeted feedback back into a second
-`GeneratorAgent` call. Everything else in the codebase supports this flow.
+retry loop: after `GeneratorAgent` runs, all three guards (`HallucinationGuard`,
+`StateCoverageGuard`, `A11yGuard`) inspect the output and save results to
+`PipelineContext`. If any guard fails, their feedback prompts are combined and fed
+into a `GeneratorAgent` retry. Guards always run after the final Generator call so
+`ValidatorAgent` can read the results from context without re-running them.
 
 ## 2. Agent contract — `src/agents/base.agent.ts`
 

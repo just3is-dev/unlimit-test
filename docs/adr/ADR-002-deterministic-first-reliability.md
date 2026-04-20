@@ -27,19 +27,25 @@ Deterministic-first: schema validation and regex-based checks run on every reque
 
 ## Rationale
 
-The common failure modes — schema mismatch, wrong DS tokens, uncovered states — are
-mechanical and fully detectable with deterministic code. Using an LLM to catch them
-would be slower, costlier, and harder to test. Each deterministic check is a plain
-class with unit tests; the QualityEvaluator adds a quality score on top without replacing them.
+The common failure modes — schema mismatch, wrong DS tokens, uncovered states, missing
+aria attributes — are mechanical and fully detectable with deterministic code. Using an
+LLM to catch them would be slower, costlier, and harder to test. Each deterministic check
+is a plain class with unit tests; the QualityEvaluator adds a qualitative score on top
+without replacing them.
 
-On regex vs AST for `StateCoverageGuard`: AST analysis (Babel + custom visitor) would be
-more precise but adds a heavy dependency for marginal gain. Regex patterns scoped to
-JSX operators (`&&`, `?`) are sufficient for the generated code patterns in this project.
+All three guards follow the same contract (`.check() → { passed, feedbackPrompt }`) so
+they can be composed uniformly in the Generator retry loop and their results stored in
+`PipelineContext` for `ValidatorAgent` to consume without re-running the checks.
+
+On regex vs AST for `StateCoverageGuard` and `A11yGuard`: AST analysis (Babel + custom
+visitor) would be more precise but adds a heavy dependency for marginal gain. Regex
+patterns — scoped to JSX operators (`&&`, `?`) for state coverage and to tag attributes
+for a11y — are sufficient for the generated code patterns in this project.
 
 ## Consequences
 
-- Schema validation, DS compliance, and state coverage are verified with no extra LLM
-  calls — low latency, low cost, fully testable.
+- Schema validation, DS compliance, state coverage, and accessibility rules are all
+  verified with no extra LLM calls — low latency, low cost, fully testable.
 - `QualityEvaluator` is additive: disabling it doesn't affect the pipeline output.
-- Regex-based `StateCoverageGuard` can produce false negatives for CSS states implemented
-  via non-standard syntax (e.g. CSS-in-JS libraries).
+- Regex-based guards can produce false negatives for states or attributes implemented
+  via non-standard syntax (e.g. CSS-in-JS libraries, dynamic prop spreading).
