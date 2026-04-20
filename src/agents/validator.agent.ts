@@ -16,8 +16,8 @@ import { COMPONENT_A11Y_RULES } from './validator.rules';
  *   2. CoverageCheck     — all required states present in code
  *   3. A11y rules        — component-specific checks from components.json
  *
- * Does NOT call an LLM. LLMJudge is a separate opt-in step (step 14).
- * See ADR-003 for the deterministic-first reliability rationale.
+ * Does NOT call an LLM. LLMJudge is a separate opt-in step.
+ * See ADR-002 for the deterministic-first reliability rationale.
  */
 @Injectable()
 export class ValidatorAgent {
