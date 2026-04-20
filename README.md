@@ -178,10 +178,12 @@ Three ADRs in `docs/adr/` document the key choices:
 
 **Results are non-deterministic.** Re-running the same input may produce different coverage scores — LLM outputs vary between calls even at `temperature=0` due to sampling. The examples show one representative run.
 
-**State coverage is incomplete for complex components.** The KYC wizard has 19
-required states; the generator covers 5. The gap exists because complex multi-step
-components produce long output that hits the model's instruction-following limits.
-Better prompt decomposition (generate each step separately) would improve this.
+**State coverage gaps surface actionable feedback.** When the Generator misses states,
+`CoverageCheck` identifies exactly which ones are absent and feeds that back into a
+retry. For example, the KYC wizard has 18 required states — uncovered states are not
+silently ignored but reported in `validation.issues_found` and trigger a targeted
+re-generation. Better prompt decomposition (generate each wizard step separately)
+would improve first-pass coverage on complex components.
 
 **CoverageCheck uses regex, not AST.** Regex patterns scoped to JSX operators
 (`&&`, `?`) work well for the generated code style but can miss states implemented
