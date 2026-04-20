@@ -7,7 +7,7 @@ import {
   LLMJudgeOutput,
   ParserOutput,
   ValidatorOutput,
-} from './schemas';
+} from './pipeline.schemas';
 
 /**
  * PipelineContext — shared state threaded through all four pipeline stages.

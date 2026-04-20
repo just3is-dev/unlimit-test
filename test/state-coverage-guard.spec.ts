@@ -1,4 +1,4 @@
-import { StateCovered } from '@/pipeline/schemas';
+import { StateCovered } from '@/pipeline/pipeline.schemas';
 import { StateCoverageGuard } from '@/reliability/state-coverage-guard';
 
 describe('StateCoverageGuard', () => {

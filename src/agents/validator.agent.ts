@@ -2,7 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 
 import { DesignSystemService } from '@/design-system/design-system.service';
 import { PipelineContext } from '@/pipeline/pipeline.context';
-import { GeneratorOutput, ValidatorOutput } from '@/pipeline/schemas';
+import { GeneratorOutput, ValidatorOutput } from '@/pipeline/pipeline.schemas';
 import { HallucinationGuard } from '@/reliability/hallucination-guard';
 import { StateCoverageGuard } from '@/reliability/state-coverage-guard';
 

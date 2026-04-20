@@ -1,8 +1,8 @@
 import { Body, Controller, HttpCode, HttpStatus, Post } from '@nestjs/common';
 
 import { RunPipelineDto } from './pipeline.dto';
+import { FinalOutput } from './pipeline.schemas';
 import { PipelineService } from './pipeline.service';
-import { FinalOutput } from './schemas';
 
 /**
  * PipelineController — HTTP facade over PipelineService.

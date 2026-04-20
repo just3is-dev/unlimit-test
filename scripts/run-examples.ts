@@ -16,7 +16,7 @@ import { NestFactory } from '@nestjs/core';
 
 import { AppModule } from '../src/app.module';
 import { PipelineService } from '../src/pipeline/pipeline.service';
-import { FinalOutput } from '../src/pipeline/schemas';
+import { FinalOutput } from '../src/pipeline/pipeline.schemas';
 
 async function main() {
   const { config } = await import('dotenv');

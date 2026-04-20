@@ -2,7 +2,7 @@ import { Inject, Injectable, Logger } from '@nestjs/common';
 
 import { LLM_PROVIDER, LLMProvider } from '@/llm/llm.provider';
 import { PromptLoaderService } from '@/llm/prompt-loader.service';
-import { GeneratorOutput, LLMJudgeOutput, LLMJudgeOutputSchema } from '@/pipeline/schemas';
+import { GeneratorOutput, LLMJudgeOutput, LLMJudgeOutputSchema } from '@/pipeline/pipeline.schemas';
 import { SchemaRetry } from '@/reliability/schema-retry';
 
 /**

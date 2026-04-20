@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 
-import { StateCovered } from '@/pipeline/schemas';
+import { StateCovered } from '@/pipeline/pipeline.schemas';
 
 import { CSS_STATE_PATTERNS, FUNCTIONAL_STATE_PATTERNS } from './state-coverage-guard.patterns';
 import { StateCoverageResult } from './state-coverage-guard.types';

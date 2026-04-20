@@ -1,6 +1,6 @@
 import { PipelineContext } from '@/pipeline/pipeline.context';
+import { FinalOutputSchema } from '@/pipeline/pipeline.schemas';
 import { PipelineService } from '@/pipeline/pipeline.service';
-import { FinalOutputSchema } from '@/pipeline/schemas';
 
 /**
  * Integration test for PipelineService orchestration.
