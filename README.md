@@ -198,6 +198,11 @@ Figma Tokens, Style Dictionary, or a component registry.
 
 ## AI Usage
 
+This project was developed with Claude (Anthropic) as an AI assistant — used for
+architecture design, code generation, prompt engineering, and iterative debugging.
+The pipeline architecture, reliability mechanisms, and ADRs reflect decisions made
+collaboratively with AI tooling throughout the process.
+
 **Model:** Claude (Anthropic) — `claude-sonnet-4-6` for Analyzer and Generator,
 `claude-haiku-4-5` for Parser and the optional LLM judge.
 
