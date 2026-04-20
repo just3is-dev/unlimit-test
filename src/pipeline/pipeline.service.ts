@@ -5,6 +5,7 @@ import { GeneratorAgent } from '@/agents/generator.agent';
 import { ParserAgent } from '@/agents/parser.agent';
 import { ValidatorAgent } from '@/agents/validator.agent';
 import { DesignSystemService } from '@/design-system/design-system.service';
+import { LLMJudge } from '@/reliability/llm-judge';
 
 import { PipelineContext } from './pipeline.context';
 import { FinalOutput } from './schemas';
@@ -16,7 +17,7 @@ import { FinalOutput } from './schemas';
  * See ADR-004 for why three interfaces share one service.
  *
  * Flow:
- *   description → Parser → Analyzer → Generator → Validator → FinalOutput
+ *   description → Parser → Analyzer → Generator → Validator → [LLMJudge] → FinalOutput
  *
  * Each stage writes its output to PipelineContext. Stages are sequential
  * (each depends on the previous). The context is discarded after the call.
@@ -31,6 +32,7 @@ export class PipelineService {
     private readonly analyzer: AnalyzerAgent,
     private readonly generator: GeneratorAgent,
     private readonly validator: ValidatorAgent,
+    private readonly judge: LLMJudge,
   ) {}
 
   async run(description: string): Promise<FinalOutput> {
@@ -52,6 +54,9 @@ export class PipelineService {
     // Stage 4 — Validator
     this.logger.log('Stage 4/4: Validator');
     context.validatorOutput = await this.validator.run(context.generatorOutput, context);
+
+    // Stage 5 — LLMJudge (opt-in via USE_LLM_JUDGE=true)
+    context.judgeOutput = await this.judge.evaluate(description, context.generatorOutput);
 
     this.logger.log('Pipeline complete');
     return context.toFinalOutput();

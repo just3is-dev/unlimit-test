@@ -110,6 +110,25 @@ export const ValidatorOutputSchema = z.object({
 export type ValidatorOutput = z.infer<typeof ValidatorOutputSchema>;
 
 // ---------------------------------------------------------------------------
+// Stage 5 — LLMJudge (opt-in, USE_LLM_JUDGE=true)
+// ---------------------------------------------------------------------------
+
+export const LLMJudgeOutputSchema = z.object({
+  score: z.number().int().min(0).max(100),
+  breakdown: z.object({
+    aria_correctness: z.number().int().min(0).max(30),
+    keyboard_navigation: z.number().int().min(0).max(25),
+    state_coverage: z.number().int().min(0).max(20),
+    token_compliance: z.number().int().min(0).max(15),
+    code_quality: z.number().int().min(0).max(10),
+  }),
+  issues: z.array(z.string()),
+  strengths: z.array(z.string()),
+});
+
+export type LLMJudgeOutput = z.infer<typeof LLMJudgeOutputSchema>;
+
+// ---------------------------------------------------------------------------
 // Final output — task.md-compatible combined schema
 // ---------------------------------------------------------------------------
 
@@ -129,6 +148,8 @@ export const FinalOutputSchema = z.object({
     tokens_used: z.array(z.string()),
   }),
   validation: ValidatorOutputSchema.shape.validation,
+  /** Present only when USE_LLM_JUDGE=true. */
+  judge: LLMJudgeOutputSchema.optional(),
 });
 
 export type FinalOutput = z.infer<typeof FinalOutputSchema>;

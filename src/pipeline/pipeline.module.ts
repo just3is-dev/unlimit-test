@@ -8,6 +8,7 @@ import { DesignSystemModule } from '@/design-system/design-system.module';
 import { LlmModule } from '@/llm/llm.module';
 import { CoverageCheck } from '@/reliability/coverage-check';
 import { HallucinationGuard } from '@/reliability/hallucination-guard';
+import { LLMJudge } from '@/reliability/llm-judge';
 import { SchemaRetry } from '@/reliability/schema-retry';
 
 import { PipelineService } from './pipeline.service';
@@ -18,6 +19,7 @@ import { PipelineService } from './pipeline.service';
     SchemaRetry,
     HallucinationGuard,
     CoverageCheck,
+    LLMJudge,
     ParserAgent,
     AnalyzerAgent,
     GeneratorAgent,

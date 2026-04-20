@@ -11,7 +11,11 @@ describe('PipelineService (stub agents)', () => {
 
   const stubParserOutput = {
     component: { name: 'TestCard', type: 'card' as const, business_context: 'Test' },
-    extraction: { specified_states: ['default', 'selected'], tokens_referenced: [], constraints: [] },
+    extraction: {
+      specified_states: ['default', 'selected'],
+      tokens_referenced: [],
+      constraints: [],
+    },
   };
 
   const stubAnalyzerOutput = {
@@ -39,7 +43,14 @@ describe('PipelineService (stub agents)', () => {
 
   beforeEach(() => {
     const mockDs = {
-      getContext: () => ({ cssVariables: [], componentNames: [], componentSpecs: {}, iconNames: [], cssVariableValues: {}, importBase: '@unlimit/ui' }),
+      getContext: () => ({
+        cssVariables: [],
+        componentNames: [],
+        componentSpecs: {},
+        iconNames: [],
+        cssVariableValues: {},
+        importBase: '@unlimit/ui',
+      }),
     };
 
     const mockParser = { run: jest.fn().mockResolvedValue(stubParserOutput) };
@@ -57,12 +68,16 @@ describe('PipelineService (stub agents)', () => {
       }),
     };
 
+    // LLMJudge is opt-in — returns undefined when USE_LLM_JUDGE is not set
+    const mockJudge = { evaluate: jest.fn().mockResolvedValue(undefined) };
+
     service = new PipelineService(
       mockDs as any,
       mockParser as any,
       mockAnalyzer as any,
       mockGenerator as any,
       mockValidator as any,
+      mockJudge as any,
     );
   });
 
