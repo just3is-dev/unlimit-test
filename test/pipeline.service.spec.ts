@@ -78,6 +78,9 @@ describe('PipelineService (stub agents)', () => {
     const mockStateCoverageGuard = {
       check: jest.fn().mockReturnValue({ passed: true, feedbackPrompt: '' }),
     };
+    const mockA11yGuard = {
+      check: jest.fn().mockReturnValue({ passed: true, feedbackPrompt: '' }),
+    };
 
     service = new PipelineService(
       mockDs as any,
@@ -88,6 +91,7 @@ describe('PipelineService (stub agents)', () => {
       mockQualityEvaluator as any,
       mockHallucinationGuard as any,
       mockStateCoverageGuard as any,
+      mockA11yGuard as any,
     );
   });
 

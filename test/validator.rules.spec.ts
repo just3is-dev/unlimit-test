@@ -1,7 +1,7 @@
-import { COMPONENT_A11Y_RULES } from '../src/agents/validator.rules';
+import { COMPONENT_A11Y_RULES } from '../src/reliability/a11y-guard.rules';
 
 /**
- * Tests for validator.rules.ts — component-specific a11y checks.
+ * Tests for a11y-guard.rules.ts — component-specific a11y checks.
  *
  * Key concerns:
  *  1. Word boundary: <Modal should NOT match <ModalContent

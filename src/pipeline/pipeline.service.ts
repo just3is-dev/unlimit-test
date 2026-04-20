@@ -5,6 +5,7 @@ import { GeneratorAgent } from '@/agents/generator.agent';
 import { ParserAgent } from '@/agents/parser.agent';
 import { ValidatorAgent } from '@/agents/validator.agent';
 import { DesignSystemService } from '@/design-system/design-system.service';
+import { A11yGuard } from '@/reliability/a11y-guard';
 import { HallucinationGuard } from '@/reliability/hallucination-guard';
 import { QualityEvaluator } from '@/reliability/quality-evaluator';
 import { StateCoverageGuard } from '@/reliability/state-coverage-guard';
@@ -39,6 +40,7 @@ export class PipelineService {
     private readonly qualityEvaluator: QualityEvaluator,
     private readonly hallucinationGuard: HallucinationGuard,
     private readonly stateCoverageGuard: StateCoverageGuard,
+    private readonly a11yGuard: A11yGuard,
   ) {}
 
   async run(description: string): Promise<FinalOutput> {
@@ -65,16 +67,21 @@ export class PipelineService {
         states_covered,
         files,
       );
+      const a11yResult = this.a11yGuard.check(files);
 
-      if (halResult.passed && covResult.passed) break;
+      if (halResult.passed && covResult.passed && a11yResult.passed) break;
 
-      const feedback = [halResult.feedbackPrompt, covResult.feedbackPrompt]
+      const feedback = [
+        halResult.feedbackPrompt,
+        covResult.feedbackPrompt,
+        a11yResult.feedbackPrompt,
+      ]
         .filter(Boolean)
         .join('\n\n');
 
       this.logger.warn(
         `Stage 3 retry ${attempt + 1}/${PipelineService.MAX_GENERATOR_RETRIES} — ` +
-          `hallucinations=${!halResult.passed}, stateCoverage=${!covResult.passed}`,
+          `hallucinations=${!halResult.passed}, stateCoverage=${!covResult.passed}, a11y=${!a11yResult.passed}`,
       );
 
       context.generatorOutput = await this.generator.run(context.analyzerOutput, context, feedback);

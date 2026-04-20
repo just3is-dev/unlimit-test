@@ -25,21 +25,21 @@ The core reliability primitive. On Zod schema failure, it extracts per-field err
 messages and re-prompts the model with specific correction instructions. Used by
 every agent via `BaseAgent.generate()`.
 
-## 4. Deterministic guards — `src/reliability/hallucination-guard.ts` and `state-coverage-guard.ts`
+## 4. Deterministic guards — `src/reliability/`
 
-Two checks that run without any LLM call. `HallucinationGuard` validates CSS
+Three guards run without any LLM call, all following the same contract:
+`.check() → { passed, feedbackPrompt, ... }`. `HallucinationGuard` validates CSS
 variables and component imports against the design system allow-lists.
 `StateCoverageGuard` verifies that every required state is detectable in the generated
 code — CSS states via pseudo-class patterns, functional states via JSX conditional
-patterns. Both produce a `feedbackPrompt` consumed by the retry loop in step 1.
+patterns. `A11yGuard` runs component-specific accessibility rules from
+`a11y-guard.rules.ts` — backed by a brace-aware mini-parser (`extractTags`) that
+handles word boundaries (`<Modal` ≠ `<ModalContent`) and nested JSX props
+(`icon={<Icon ... />}`) that trip up naive `[^>]*` regex.
 
-## 5. A11y rules — `src/agents/validator.rules.ts`
+All three produce a `feedbackPrompt` consumed by the Generator retry loop in step 1.
 
-Seven component-specific rules backed by a brace-aware mini-parser (`extractTags`).
-The parser handles word boundaries (`<Modal` ≠ `<ModalContent`) and nested JSX
-props (`icon={<Icon ... />}`) that trip up naive `[^>]*` regex.
-
-## 6. One worked example — `examples/01-payment-card/output.json`
+## 5. One worked example — `examples/01-payment-card/output.json`
 
 A complete end-to-end output: parser extraction, gap analysis, generated component,
 validation result. The companion `PaymentCard.tsx` is the actual generated React

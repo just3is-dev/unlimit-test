@@ -6,6 +6,7 @@ import { ParserAgent } from '@/agents/parser.agent';
 import { ValidatorAgent } from '@/agents/validator.agent';
 import { DesignSystemModule } from '@/design-system/design-system.module';
 import { LlmModule } from '@/llm/llm.module';
+import { A11yGuard } from '@/reliability/a11y-guard';
 import { HallucinationGuard } from '@/reliability/hallucination-guard';
 import { QualityEvaluator } from '@/reliability/quality-evaluator';
 import { SchemaRetry } from '@/reliability/schema-retry';
@@ -20,6 +21,7 @@ import { PipelineService } from './pipeline.service';
   providers: [
     SchemaRetry,
     HallucinationGuard,
+    A11yGuard,
     StateCoverageGuard,
     QualityEvaluator,
     ParserAgent,

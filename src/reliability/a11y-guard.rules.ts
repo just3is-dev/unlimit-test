@@ -1,4 +1,4 @@
-import { A11yRule } from './validator.types';
+import type { A11yRule } from './a11y-guard.types';
 
 /**
  * Extracts all JSX opening tags for a component by name.
@@ -32,6 +32,8 @@ function extractTags(code: string, name: string): string[] {
 /**
  * Component-specific a11y rules derived from components.json `a11y` fields.
  * Only rules that can be checked deterministically via regex.
+ *
+ * Keyed by DS component name (must match the name in @unlimit/ui exports).
  */
 export const COMPONENT_A11Y_RULES: Record<string, A11yRule[]> = {
   IconButton: [

@@ -173,6 +173,7 @@ Validation runs without any LLM calls:
 - **SchemaRetry** — wraps every LLM call; re-prompts with Zod error details on failure
 - **HallucinationGuard** — checks generated code against DS token and component allow-lists
 - **StateCoverageGuard** — verifies every required state is implemented in the generated code
+- **A11yGuard** — checks component-specific accessibility rules (aria-label, title, label props, etc.)
 - **QualityEvaluator** — opt-in a11y scoring via `USE_QUALITY_EVALUATOR=true` (uses Haiku)
 
 ### Model strategy
