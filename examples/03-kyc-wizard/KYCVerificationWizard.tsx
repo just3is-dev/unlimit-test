@@ -1,755 +1,968 @@
 // @ts-nocheck
-import React, { useState, useRef, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   Stepper,
   Input,
+  Select,
   FileUpload,
   Button,
+  IconButton,
+  Card,
+  Modal,
+  Badge,
   Spinner,
   Skeleton,
-  Card,
-  Badge,
-  Modal,
   Icon,
 } from '@unlimit/ui';
-import styles from './KYCVerificationWizard.module.css';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
-type StepId = 'personal' | 'document' | 'selfie';
+type StepId = 'personal-info' | 'document-upload' | 'selfie';
 type StepStatus = 'pending' | 'active' | 'complete' | 'error';
-type VerificationStatus = 'pending_review' | 'approved' | 'rejected' | null;
+type VerificationStatus = 'pending-review' | 'approved' | 'rejected' | null;
 
 interface PersonalInfo {
   firstName: string;
   lastName: string;
   dateOfBirth: string;
+  nationality: string;
   address: string;
-  city: string;
-  postalCode: string;
 }
 
 interface PersonalInfoErrors {
   firstName?: string;
   lastName?: string;
   dateOfBirth?: string;
+  nationality?: string;
   address?: string;
-  city?: string;
-  postalCode?: string;
 }
 
-interface KYCVerificationWizardProps {
-  /** Called when the wizard completes successfully */
-  onComplete?: (status: VerificationStatus) => void;
-  /** Called when the user cancels/discards the wizard */
-  onDiscard?: () => void;
-  /** Simulate initial data loading (e.g. pre-fill from profile) */
-  initialLoading?: boolean;
+interface UploadedFile {
+  file: File;
+  id: string;
+}
+
+interface SelfieFile {
+  file: File;
+  id: string;
 }
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
 const STEPS: Array<{ id: StepId; label: string }> = [
-  { id: 'personal', label: 'Personal Info' },
-  { id: 'document', label: 'Document Upload' },
+  { id: 'personal-info', label: 'Personal Info' },
+  { id: 'document-upload', label: 'Document Upload' },
   { id: 'selfie', label: 'Selfie' },
 ];
 
 const STEP_INDEX: Record<StepId, number> = {
-  personal: 0,
-  document: 1,
+  'personal-info': 0,
+  'document-upload': 1,
   selfie: 2,
 };
 
+const NATIONALITY_OPTIONS = [
+  { value: '', label: 'Select nationality' },
+  { value: 'us', label: 'United States' },
+  { value: 'gb', label: 'United Kingdom' },
+  { value: 'de', label: 'Germany' },
+  { value: 'fr', label: 'France' },
+  { value: 'jp', label: 'Japan' },
+  { value: 'other', label: 'Other' },
+];
+
 // ─── Component ───────────────────────────────────────────────────────────────
 
-export const KYCVerificationWizard: React.FC<KYCVerificationWizardProps> = ({
-  onComplete,
-  onDiscard,
-  initialLoading = false,
-}) => {
-  // ── Wizard-level state ──
-  const [currentStep, setCurrentStep] = useState<StepId>('personal');
-  const [stepStatuses, setStepStatuses] = useState<Record<StepId, StepStatus>>({
-    personal: 'active',
-    document: 'pending',
-    selfie: 'pending',
-  });
-  const [isInitialLoading, setIsInitialLoading] = useState(initialLoading);
+export default function KYCVerificationWizard() {
+  // ── Page-load state ──
+  const [isPageLoading, setIsPageLoading] = useState(true);
+
+  // ── Step state ──
+  const [activeStep, setActiveStep] = useState<StepId>('personal-info');
+  const [completedSteps, setCompletedSteps] = useState<Set<StepId>>(new Set());
+  const [stepErrors, setStepErrors] = useState<Set<StepId>>(new Set());
+
+  // ── Submission / async state ──
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [wizardError, setWizardError] = useState<string | null>(null);
-  const [stepError, setStepError] = useState<string | null>(null);
+  const [globalError, setGlobalError] = useState<string | null>(null);
   const [verificationStatus, setVerificationStatus] = useState<VerificationStatus>(null);
   const [rejectionReason, setRejectionReason] = useState<string>('');
-  const [showDiscardModal, setShowDiscardModal] = useState(false);
 
-  // ── Step 1: Personal Info ──
+  // ── Personal info state ──
   const [personalInfo, setPersonalInfo] = useState<PersonalInfo>({
     firstName: '',
     lastName: '',
     dateOfBirth: '',
+    nationality: '',
     address: '',
-    city: '',
-    postalCode: '',
   });
-  const [personalErrors, setPersonalErrors] = useState<PersonalInfoErrors>({});
+  const [personalInfoErrors, setPersonalInfoErrors] = useState<PersonalInfoErrors>({});
 
-  // ── Step 2: Document Upload ──
-  const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
-  const [fileError, setFileError] = useState<string | undefined>(undefined);
+  // ── Document upload state ──
+  const [uploadedDoc, setUploadedDoc] = useState<UploadedFile | null>(null);
+  const [isUploadingDoc, setIsUploadingDoc] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+  const [isDeletingDoc, setIsDeletingDoc] = useState(false);
+  const [isConfirmingRemoveDoc, setIsConfirmingRemoveDoc] = useState(false);
 
-  // ── Step 3: Selfie ──
-  const [selfieDataUrl, setSelfieDataUrl] = useState<string | null>(null);
-  const [selfieLoading, setSelfieLoading] = useState(false);
+  // ── Selfie state ──
+  const [selfieFile, setSelfieFile] = useState<SelfieFile | null>(null);
+  const [isSelfieUploading, setIsSelfieUploading] = useState(false);
   const [selfieError, setSelfieError] = useState<string | null>(null);
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const streamRef = useRef<MediaStream | null>(null);
 
-  // ── Accessibility: focus management & live region ──
+  // ── Focus management ──
   const stepHeadingRef = useRef<HTMLHeadingElement>(null);
-  const [liveAnnouncement, setLiveAnnouncement] = useState('');
+  const liveRegionRef = useRef<HTMLDivElement>(null);
 
-  // Simulate initial data load
+  // ── Simulate initial page load ──
   useEffect(() => {
-    if (initialLoading) {
-      const t = setTimeout(() => setIsInitialLoading(false), 1500);
-      return () => clearTimeout(t);
+    const timer = setTimeout(() => setIsPageLoading(false), 1200);
+    return () => clearTimeout(timer);
+  }, []);
+
+  // ── Announce step changes to screen readers ──
+  useEffect(() => {
+    if (!isPageLoading && liveRegionRef.current) {
+      const stepLabel = STEPS.find((s) => s.id === activeStep)?.label ?? '';
+      liveRegionRef.current.textContent = `Step ${STEP_INDEX[activeStep] + 1} of ${STEPS.length}: ${stepLabel}`;
     }
-  }, [initialLoading]);
+  }, [activeStep, isPageLoading]);
 
-  // Focus step heading on step change
+  // ── Focus step heading on step change ──
   useEffect(() => {
-    if (!isInitialLoading) {
+    if (!isPageLoading) {
       stepHeadingRef.current?.focus();
     }
-  }, [currentStep, isInitialLoading]);
+  }, [activeStep, isPageLoading]);
 
-  // Stop camera stream when leaving selfie step
-  useEffect(() => {
-    if (currentStep !== 'selfie' && streamRef.current) {
-      streamRef.current.getTracks().forEach((t) => t.stop());
-      streamRef.current = null;
-    }
-  }, [currentStep]);
+  // ─── Derived ─────────────────────────────────────────────────────────────
 
-  // ── Helpers ──
+  const activeStepIndex = STEP_INDEX[activeStep];
 
-  const announceStep = (stepId: StepId) => {
-    const idx = STEP_INDEX[stepId];
-    const label = STEPS[idx].label;
-    setLiveAnnouncement(`Step ${idx + 1} of ${STEPS.length}: ${label}`);
+  const stepStatusMap: Record<StepId, StepStatus> = {
+    'personal-info':
+      activeStep === 'personal-info'
+        ? 'active'
+        : stepErrors.has('personal-info')
+        ? 'error'
+        : completedSteps.has('personal-info')
+        ? 'complete'
+        : 'pending',
+    'document-upload':
+      activeStep === 'document-upload'
+        ? 'active'
+        : stepErrors.has('document-upload')
+        ? 'error'
+        : completedSteps.has('document-upload')
+        ? 'complete'
+        : 'pending',
+    selfie:
+      activeStep === 'selfie'
+        ? 'active'
+        : stepErrors.has('selfie')
+        ? 'error'
+        : completedSteps.has('selfie')
+        ? 'complete'
+        : 'pending',
   };
 
-  const updateStepStatus = (id: StepId, status: StepStatus) => {
-    setStepStatuses((prev) => ({ ...prev, [id]: status }));
-  };
+  const isPersonalInfoValid =
+    personalInfo.firstName.trim() !== '' &&
+    personalInfo.lastName.trim() !== '' &&
+    personalInfo.dateOfBirth.trim() !== '' &&
+    personalInfo.nationality !== '' &&
+    personalInfo.address.trim() !== '';
 
-  // ── Step 1 Validation ──
+  const isDocumentStepValid = uploadedDoc !== null;
+  const isSelfieStepValid = selfieFile !== null;
+
+  const isNextDisabled =
+    (activeStep === 'personal-info' && !isPersonalInfoValid) ||
+    (activeStep === 'document-upload' && !isDocumentStepValid) ||
+    (activeStep === 'selfie' && !isSelfieStepValid) ||
+    isSubmitting;
+
+  const isBackDisabled = activeStepIndex === 0 || isSubmitting;
+
+  const nextButtonLabel =
+    activeStep === 'personal-info'
+      ? 'Next: Document Upload'
+      : activeStep === 'document-upload'
+      ? 'Next: Selfie'
+      : 'Submit Verification';
+
+  const backButtonLabel =
+    activeStep === 'document-upload'
+      ? 'Back to Personal Info'
+      : activeStep === 'selfie'
+      ? 'Back to Document Upload'
+      : 'Back';
+
+  // ─── Handlers ────────────────────────────────────────────────────────────
 
   const validatePersonalInfo = (): boolean => {
     const errors: PersonalInfoErrors = {};
     if (!personalInfo.firstName.trim()) errors.firstName = 'First name is required.';
     if (!personalInfo.lastName.trim()) errors.lastName = 'Last name is required.';
     if (!personalInfo.dateOfBirth.trim()) errors.dateOfBirth = 'Date of birth is required.';
+    if (!personalInfo.nationality) errors.nationality = 'Nationality is required.';
     if (!personalInfo.address.trim()) errors.address = 'Address is required.';
-    if (!personalInfo.city.trim()) errors.city = 'City is required.';
-    if (!personalInfo.postalCode.trim()) errors.postalCode = 'Postal code is required.';
-    setPersonalErrors(errors);
+    setPersonalInfoErrors(errors);
     return Object.keys(errors).length === 0;
   };
 
-  // ── Navigation ──
+  const handleNext = async () => {
+    setGlobalError(null);
 
-  const goToStep = (stepId: StepId) => {
-    setCurrentStep(stepId);
-    setStepError(null);
-    updateStepStatus(stepId, 'active');
-    announceStep(stepId);
+    if (activeStep === 'personal-info') {
+      const valid = validatePersonalInfo();
+      if (!valid) {
+        setStepErrors((prev) => new Set(prev).add('personal-info'));
+        return;
+      }
+      setStepErrors((prev) => { const s = new Set(prev); s.delete('personal-info'); return s; });
+      setCompletedSteps((prev) => new Set(prev).add('personal-info'));
+      setActiveStep('document-upload');
+      return;
+    }
+
+    if (activeStep === 'document-upload') {
+      if (!uploadedDoc) return;
+      // Simulate async document upload
+      setIsUploadingDoc(true);
+      setUploadError(null);
+      try {
+        await simulateAsync(1500);
+        setStepErrors((prev) => { const s = new Set(prev); s.delete('document-upload'); return s; });
+        setCompletedSteps((prev) => new Set(prev).add('document-upload'));
+        setActiveStep('selfie');
+      } catch {
+        setUploadError('Network error while uploading document. Please try again.');
+        setStepErrors((prev) => new Set(prev).add('document-upload'));
+      } finally {
+        setIsUploadingDoc(false);
+      }
+      return;
+    }
+
+    if (activeStep === 'selfie') {
+      if (!selfieFile) return;
+      // Simulate async final submission
+      setIsSubmitting(true);
+      setSelfieError(null);
+      try {
+        await simulateAsync(2000);
+        // Simulate a random outcome for demo purposes
+        const outcomes: VerificationStatus[] = ['pending-review', 'approved', 'rejected'];
+        const outcome = outcomes[Math.floor(Math.random() * outcomes.length)];
+        setVerificationStatus(outcome);
+        if (outcome === 'rejected') {
+          setRejectionReason(
+            'We were unable to verify your identity. The document provided did not match the selfie. Please re-submit with a valid government-issued ID and a clear selfie.'
+          );
+        }
+        setCompletedSteps((prev) => new Set(prev).add('selfie'));
+      } catch {
+        setGlobalError('Submission failed due to a server error. Please try again.');
+        setStepErrors((prev) => new Set(prev).add('selfie'));
+      } finally {
+        setIsSubmitting(false);
+      }
+    }
   };
 
   const handleBack = () => {
-    const idx = STEP_INDEX[currentStep];
-    if (idx === 0) return;
-    const prevStep = STEPS[idx - 1].id;
-    goToStep(prevStep);
+    if (activeStep === 'document-upload') setActiveStep('personal-info');
+    if (activeStep === 'selfie') setActiveStep('document-upload');
+    setGlobalError(null);
   };
 
-  const handleNext = async () => {
-    setStepError(null);
-    const idx = STEP_INDEX[currentStep];
-
-    if (currentStep === 'personal') {
-      if (!validatePersonalInfo()) return;
-      setIsSubmitting(true);
-      try {
-        await simulateStepSubmit();
-        updateStepStatus('personal', 'complete');
-        goToStep('document');
-      } catch (e) {
-        updateStepStatus('personal', 'error');
-        setStepError('Failed to save personal information. Please try again.');
-      } finally {
-        setIsSubmitting(false);
-      }
-      return;
-    }
-
-    if (currentStep === 'document') {
-      if (uploadedFiles.length === 0) {
-        setFileError('Please upload a document before continuing.');
-        return;
-      }
-      setIsSubmitting(true);
-      try {
-        await simulateStepSubmit();
-        updateStepStatus('document', 'complete');
-        goToStep('selfie');
-      } catch (e) {
-        updateStepStatus('document', 'error');
-        setStepError('Failed to upload document. Please try again.');
-      } finally {
-        setIsSubmitting(false);
-      }
-      return;
-    }
-
-    if (currentStep === 'selfie') {
-      if (!selfieDataUrl) {
-        setSelfieError('Please capture a selfie before submitting.');
-        return;
-      }
-      setIsSubmitting(true);
-      try {
-        await simulateStepSubmit();
-        updateStepStatus('selfie', 'complete');
-        // Simulate verification result
-        const result = await simulateVerification();
-        setVerificationStatus(result.status);
-        if (result.status === 'rejected') {
-          setRejectionReason(result.reason ?? 'Your documents could not be verified.');
-        }
-        onComplete?.(result.status);
-      } catch (e: any) {
-        if (e?.message === 'SESSION_EXPIRED') {
-          setWizardError('Your session has expired. Please refresh the page and try again.');
-        } else {
-          updateStepStatus('selfie', 'error');
-          setStepError('Submission failed. Please try again.');
-        }
-      } finally {
-        setIsSubmitting(false);
-      }
+  const handlePersonalInfoChange = (field: keyof PersonalInfo) => (value: string) => {
+    setPersonalInfo((prev) => ({ ...prev, [field]: value }));
+    if (personalInfoErrors[field]) {
+      setPersonalInfoErrors((prev) => { const e = { ...prev }; delete e[field]; return e; });
     }
   };
 
-  // ── Camera (Selfie Step) ──
-
-  const startCamera = useCallback(async () => {
-    setSelfieError(null);
-    setSelfieLoading(true);
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-      streamRef.current = stream;
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-        await videoRef.current.play();
-      }
-    } catch {
-      setSelfieError(
-        'Camera access was denied or is unavailable. Please allow camera permissions and try again.',
-      );
-    } finally {
-      setSelfieLoading(false);
-    }
+  const handleDocFiles = useCallback((files: File[]) => {
+    if (files.length === 0) return;
+    setUploadedDoc({ file: files[0], id: crypto.randomUUID() });
+    setUploadError(null);
   }, []);
 
-  const captureSelfie = () => {
-    if (!videoRef.current || !canvasRef.current) return;
-    const video = videoRef.current;
-    const canvas = canvasRef.current;
-    canvas.width = video.videoWidth;
-    canvas.height = video.videoHeight;
-    canvas.getContext('2d')?.drawImage(video, 0, 0);
-    const dataUrl = canvas.toDataURL('image/jpeg');
-    setSelfieDataUrl(dataUrl);
+  const handleSelfieFiles = useCallback((files: File[]) => {
+    if (files.length === 0) return;
+    setSelfieFile({ file: files[0], id: crypto.randomUUID() });
     setSelfieError(null);
-    // Stop stream after capture
-    streamRef.current?.getTracks().forEach((t) => t.stop());
-    streamRef.current = null;
+  }, []);
+
+  const confirmRemoveDoc = () => setIsConfirmingRemoveDoc(true);
+  const cancelRemoveDoc = () => setIsConfirmingRemoveDoc(false);
+  const executeRemoveDoc = async () => {
+    setIsConfirmingRemoveDoc(false);
+    setIsDeletingDoc(true);
+    await simulateAsync(800);
+    setUploadedDoc(null);
+    setIsDeletingDoc(false);
   };
 
-  const retakeSelfie = () => {
-    setSelfieDataUrl(null);
-    startCamera();
+  const handleRestart = () => {
+    setActiveStep('personal-info');
+    setCompletedSteps(new Set());
+    setStepErrors(new Set());
+    setVerificationStatus(null);
+    setRejectionReason('');
+    setPersonalInfo({ firstName: '', lastName: '', dateOfBirth: '', nationality: '', address: '' });
+    setPersonalInfoErrors({});
+    setUploadedDoc(null);
+    setSelfieFile(null);
+    setGlobalError(null);
+    setUploadError(null);
+    setSelfieError(null);
   };
-
-  // ── File Handling ──
-
-  const handleFiles = (files: File[]) => {
-    setFileError(undefined);
-    setUploadedFiles(files);
-    setLiveAnnouncement(
-      files.length > 0
-        ? `${files.length} file${files.length > 1 ? 's' : ''} selected: ${files.map((f) => f.name).join(', ')}`
-        : 'No files selected.',
-    );
-  };
-
-  // ── Discard Modal ──
-
-  const handleDiscardConfirm = () => {
-    setShowDiscardModal(false);
-    onDiscard?.();
-  };
-
-  // ── Simulated async helpers ──
-
-  const simulateStepSubmit = (): Promise<void> =>
-    new Promise((resolve, reject) => {
-      setTimeout(() => {
-        // 10% chance of failure for demo
-        Math.random() < 0.1 ? reject(new Error('NETWORK_ERROR')) : resolve();
-      }, 1200);
-    });
-
-  const simulateVerification = (): Promise<{ status: VerificationStatus; reason?: string }> =>
-    new Promise((resolve) => {
-      setTimeout(() => {
-        const roll = Math.random();
-        if (roll < 0.6) resolve({ status: 'pending_review' });
-        else if (roll < 0.85) resolve({ status: 'approved' });
-        else resolve({ status: 'rejected', reason: 'The provided ID document could not be verified. Please ensure the document is valid and not expired.' });
-      }, 1800);
-    });
-
-  // ── Derived ──
-
-  const currentStepIndex = STEP_INDEX[currentStep];
-  const isFirstStep = currentStepIndex === 0;
-  const isLastStep = currentStepIndex === STEPS.length - 1;
-  const isComplete = verificationStatus !== null;
-
-  const nextButtonLabel = isLastStep
-    ? 'Submit Verification'
-    : `Next: ${STEPS[currentStepIndex + 1].label}`;
-
-  const isNextDisabled =
-    isSubmitting ||
-    (currentStep === 'document' && uploadedFiles.length === 0) ||
-    (currentStep === 'selfie' && !selfieDataUrl && !selfieLoading);
 
   // ─── Render ───────────────────────────────────────────────────────────────
 
-  // Wizard-level unrecoverable error
-  if (wizardError) {
-    return (
-      <div className={styles.wizardContainer} role="alert">
-        <Card padding="lg">
-          <div className={styles.statusContent}>
-            <Icon name="alert" size="lg" aria-hidden="true" />
-            <h1 className={styles.statusTitle}>Something went wrong</h1>
-            <p className={styles.statusDescription}>{wizardError}</p>
-            <Button variant="primary" onClick={() => window.location.reload()}>
-              Refresh Page
-            </Button>
-          </div>
-        </Card>
-      </div>
-    );
-  }
-
-  // Initial loading skeleton
-  if (isInitialLoading) {
-    return (
-      <div className={styles.wizardContainer} aria-busy="true" aria-label="Loading verification wizard">
-        <div className={styles.skeletonWrapper}>
-          <Skeleton variant="rect" width="100%" height={56} />
-          <Skeleton variant="rect" width="100%" height={400} />
-          <div className={styles.skeletonButtons}>
-            <Skeleton variant="rect" width={120} height={44} />
-            <Skeleton variant="rect" width={160} height={44} />
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  // Verification result screen
-  if (isComplete) {
-    return (
-      <div className={styles.wizardContainer}>
-        <Card padding="lg">
-          <div className={styles.statusContent}>
-            {verificationStatus === 'approved' && (
-              <>
-                <div className={styles.statusIconRow}>
-                  <Icon name="check" size="lg" aria-hidden="true" />
-                </div>
-                <h1 className={styles.statusTitle}>Verification Approved</h1>
-                <Badge variant="success">Approved</Badge>
-                <p className={styles.statusDescription}>
-                  Your identity has been successfully verified. You now have full access to your account.
-                </p>
-                <Button variant="primary" onClick={() => onComplete?.('approved')}>
-                  Continue to Dashboard
-                </Button>
-              </>
-            )}
-            {verificationStatus === 'pending_review' && (
-              <>
-                <div className={styles.statusIconRow}>
-                  <Icon name="info" size="lg" aria-hidden="true" />
-                </div>
-                <h1 className={styles.statusTitle}>Verification Pending Review</h1>
-                <Badge variant="warning">Pending Review</Badge>
-                <p className={styles.statusDescription}>
-                  Your documents have been submitted and are currently under review. This typically takes 1–2 business days. We'll notify you by email once the review is complete.
-                </p>
-                <div className={styles.pendingSpinner}>
-                  <Spinner size="md" label="Awaiting review" />
-                </div>
-              </>
-            )}
-            {verificationStatus === 'rejected' && (
-              <>
-                <div className={styles.statusIconRow}>
-                  <Icon name="alert" size="lg" aria-hidden="true" />
-                </div>
-                <h1 className={styles.statusTitle}>Verification Rejected</h1>
-                <Badge variant="danger">Rejected</Badge>
-                <p className={styles.statusDescription}>
-                  Unfortunately, your verification was not successful.
-                </p>
-                {rejectionReason && (
-                  <div className={styles.rejectionReason} role="alert">
-                    <strong>Reason: </strong>{rejectionReason}
-                  </div>
-                )}
-                <Button
-                  variant="primary"
-                  onClick={() => {
-                    setVerificationStatus(null);
-                    setCurrentStep('personal');
-                    setStepStatuses({ personal: 'active', document: 'pending', selfie: 'pending' });
-                    setUploadedFiles([]);
-                    setSelfieDataUrl(null);
-                    setStepError(null);
-                  }}
-                >
-                  Restart Verification
-                </Button>
-              </>
-            )}
-          </div>
-        </Card>
-      </div>
-    );
-  }
-
   return (
-    <div
-      className={styles.wizardContainer}
-      aria-busy={isSubmitting}
-    >
-      {/* Accessible live region for step announcements */}
+    <div style={styles.page}>
+      {/* Screen-reader live region for step announcements */}
       <div
+        ref={liveRegionRef}
         aria-live="polite"
         aria-atomic="true"
-        className={styles.srOnly}
-      >
-        {liveAnnouncement}
-      </div>
+        style={styles.srOnly}
+      />
 
-      {/* Step Indicator */}
-      <div className={styles.stepperWrapper}>
-        <Stepper
-          steps={STEPS}
-          current={currentStep}
-          status={stepStatuses}
-        />
-      </div>
-
-      {/* Step Content Card */}
-      <Card padding="lg">
-        {/* Step-level error banner */}
-        {stepError && (
-          <div className={styles.stepErrorBanner} role="alert">
-            <Icon name="alert" size="sm" aria-hidden="true" />
-            <span>{stepError}</span>
+      <div style={styles.container}>
+        {/* ── Page loading skeleton ── */}
+        {isPageLoading ? (
+          <div aria-busy="true" aria-label="Loading verification wizard">
+            <Skeleton variant="rect" width="100%" height={48} />
+            <div style={{ marginTop: 'var(--spacing-6)' }}>
+              <Skeleton variant="rect" width="100%" height={320} />
+            </div>
+            <div style={{ marginTop: 'var(--spacing-4)', display: 'flex', gap: 'var(--spacing-3)' }}>
+              <Skeleton variant="rect" width={120} height={44} />
+              <Skeleton variant="rect" width={120} height={44} />
+            </div>
           </div>
-        )}
-
-        {/* ── Step 1: Personal Info ── */}
-        {currentStep === 'personal' && (
-          <section aria-labelledby="step-heading">
-            <h2
-              id="step-heading"
-              ref={stepHeadingRef}
-              tabIndex={-1}
-              className={styles.stepHeading}
-            >
-              Step 1 of 3: Personal Information
-            </h2>
-            <p className={styles.stepDescription}>
-              Please provide your legal name and address as they appear on your government-issued ID.
-            </p>
-            <div className={styles.formGrid}>
-              <Input
-                label="First Name"
-                value={personalInfo.firstName}
-                onChange={(v) => setPersonalInfo((p) => ({ ...p, firstName: v }))}
-                placeholder="e.g. Jane"
-                required
-                error={personalErrors.firstName}
-              />
-              <Input
-                label="Last Name"
-                value={personalInfo.lastName}
-                onChange={(v) => setPersonalInfo((p) => ({ ...p, lastName: v }))}
-                placeholder="e.g. Smith"
-                required
-                error={personalErrors.lastName}
-              />
-              <div className={styles.fullWidth}>
-                <Input
-                  label="Date of Birth"
-                  value={personalInfo.dateOfBirth}
-                  onChange={(v) => setPersonalInfo((p) => ({ ...p, dateOfBirth: v }))}
-                  placeholder="YYYY-MM-DD"
-                  type="text"
-                  required
-                  error={personalErrors.dateOfBirth}
-                />
-              </div>
-              <div className={styles.fullWidth}>
-                <Input
-                  label="Street Address"
-                  value={personalInfo.address}
-                  onChange={(v) => setPersonalInfo((p) => ({ ...p, address: v }))}
-                  placeholder="e.g. 123 Main Street"
-                  required
-                  error={personalErrors.address}
-                />
-              </div>
-              <Input
-                label="City"
-                value={personalInfo.city}
-                onChange={(v) => setPersonalInfo((p) => ({ ...p, city: v }))}
-                placeholder="e.g. London"
-                required
-                error={personalErrors.city}
-              />
-              <Input
-                label="Postal Code"
-                value={personalInfo.postalCode}
-                onChange={(v) => setPersonalInfo((p) => ({ ...p, postalCode: v }))}
-                placeholder="e.g. SW1A 1AA"
-                required
-                error={personalErrors.postalCode}
+        ) : verificationStatus !== null ? (
+          // ── Verification status screen ──
+          <VerificationStatusScreen
+            status={verificationStatus}
+            rejectionReason={rejectionReason}
+            onRestart={handleRestart}
+          />
+        ) : (
+          // ── Wizard ──
+          <>
+            {/* Stepper */}
+            <div style={styles.stepperWrapper}>
+              <Stepper
+                steps={STEPS}
+                current={activeStep}
+                status={stepStatusMap}
               />
             </div>
-          </section>
-        )}
 
-        {/* ── Step 2: Document Upload ── */}
-        {currentStep === 'document' && (
-          <section aria-labelledby="step-heading">
-            <h2
-              id="step-heading"
-              ref={stepHeadingRef}
-              tabIndex={-1}
-              className={styles.stepHeading}
-            >
-              Step 2 of 3: Document Upload
-            </h2>
-            <p className={styles.stepDescription}>
-              Upload a clear photo or scan of your government-issued ID (passport, driving licence, or national ID card). Accepted formats: PDF, JPG, PNG. Maximum size: 10 MB.
-            </p>
-            <FileUpload
-              accept={['application/pdf', 'image/jpeg', 'image/png']}
-              maxSizeMb={10}
-              multiple={false}
-              onFiles={handleFiles}
-              error={fileError}
-              disabled={isSubmitting}
-            />
-            {/* Uploaded file list with live announcement */}
-            {uploadedFiles.length > 0 && (
-              <div
-                className={styles.fileList}
-                aria-live="polite"
-                aria-label="Selected files"
+            {/* Global error */}
+            {globalError && (
+              <div role="alert" style={styles.globalError}>
+                <Icon name="alert" size="sm" aria-hidden={true} />
+                <span>{globalError}</span>
+              </div>
+            )}
+
+            {/* Step content */}
+            <Card padding="md">
+              <h2
+                ref={stepHeadingRef}
+                tabIndex={-1}
+                style={styles.stepHeading}
               >
-                <p className={styles.fileListLabel}>Selected file:</p>
-                <ul className={styles.fileListItems}>
-                  {uploadedFiles.map((file) => (
-                    <li key={file.name} className={styles.fileListItem}>
-                      <Icon name="check" size="sm" aria-hidden="true" />
-                      <span>{file.name}</span>
-                      <span className={styles.fileSize}>
-                        ({(file.size / 1024 / 1024).toFixed(2)} MB)
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
-            {uploadedFiles.length === 0 && !fileError && (
-              <p className={styles.emptyHint} aria-live="polite">
-                No document selected yet. Please upload a file to continue.
-              </p>
-            )}
-          </section>
-        )}
+                {activeStep === 'personal-info' && 'Step 1: Personal Information'}
+                {activeStep === 'document-upload' && 'Step 2: Document Upload'}
+                {activeStep === 'selfie' && 'Step 3: Selfie Verification'}
+              </h2>
 
-        {/* ── Step 3: Selfie ── */}
-        {currentStep === 'selfie' && (
-          <section aria-labelledby="step-heading">
-            <h2
-              id="step-heading"
-              ref={stepHeadingRef}
-              tabIndex={-1}
-              className={styles.stepHeading}
-            >
-              Step 3 of 3: Selfie Capture
-            </h2>
-            <p className={styles.stepDescription}>
-              Take a clear selfie so we can match your face to your ID document. Ensure you are in a well-lit area and your face is fully visible.
-            </p>
-
-            {selfieError && (
-              <div className={styles.selfieError} role="alert">
-                <Icon name="alert" size="sm" aria-hidden="true" />
-                <span>{selfieError}</span>
-              </div>
-            )}
-
-            {selfieLoading && (
-              <div className={styles.selfieLoading}>
-                <Spinner size="md" label="Initialising camera" />
-                <p className={styles.selfieLoadingText}>Initialising camera…</p>
-              </div>
-            )}
-
-            {!selfieDataUrl && !selfieLoading && !selfieError && !streamRef.current && (
-              <div className={styles.selfiePrompt}>
-                <Button
-                  variant="secondary"
-                  onClick={startCamera}
-                  aria-label="Start camera to capture selfie"
-                >
-                  Start Camera
-                </Button>
-              </div>
-            )}
-
-            {!selfieDataUrl && streamRef.current && !selfieLoading && (
-              <div className={styles.cameraWrapper}>
-                <video
-                  ref={videoRef}
-                  className={styles.cameraPreview}
-                  aria-label="Live camera preview for selfie capture"
-                  playsInline
-                  muted
+              {activeStep === 'personal-info' && (
+                <PersonalInfoStep
+                  values={personalInfo}
+                  errors={personalInfoErrors}
+                  onChange={handlePersonalInfoChange}
                 />
-                <Button
-                  variant="primary"
-                  onClick={captureSelfie}
-                  aria-label="Capture selfie photo"
-                >
-                  Capture Photo
-                </Button>
-              </div>
-            )}
+              )}
 
-            {selfieDataUrl && (
-              <div className={styles.selfiePreview}>
-                <img
-                  src={selfieDataUrl}
-                  alt="Your captured selfie for identity verification"
-                  className={styles.selfieImage}
+              {activeStep === 'document-upload' && (
+                <DocumentUploadStep
+                  uploadedDoc={uploadedDoc}
+                  isUploading={isUploadingDoc}
+                  isDeletingDoc={isDeletingDoc}
+                  uploadError={uploadError}
+                  onFiles={handleDocFiles}
+                  onRemove={confirmRemoveDoc}
                 />
-                <Button
-                  variant="ghost"
-                  onClick={retakeSelfie}
-                  aria-label="Retake selfie photo"
-                >
-                  Retake Photo
-                </Button>
-              </div>
-            )}
+              )}
 
-            {/* Hidden canvas for capture */}
-            <canvas ref={canvasRef} className={styles.hiddenCanvas} aria-hidden="true" />
-          </section>
+              {activeStep === 'selfie' && (
+                <SelfieStep
+                  selfieFile={selfieFile}
+                  isUploading={isSelfieUploading}
+                  selfieError={selfieError}
+                  onFiles={handleSelfieFiles}
+                />
+              )}
+            </Card>
+
+            {/* Navigation */}
+            <div style={styles.navRow}>
+              <Button
+                variant="secondary"
+                size="lg"
+                disabled={isBackDisabled}
+                aria-disabled={isBackDisabled}
+                onClick={isBackDisabled ? undefined : handleBack}
+              >
+                {backButtonLabel}
+              </Button>
+
+              <Button
+                variant="primary"
+                size="lg"
+                disabled={isNextDisabled}
+                aria-disabled={isNextDisabled}
+                loading={isSubmitting || isUploadingDoc}
+                onClick={isNextDisabled ? undefined : handleNext}
+              >
+                {nextButtonLabel}
+              </Button>
+            </div>
+          </>
         )}
-      </Card>
-
-      {/* Navigation Buttons */}
-      <div className={styles.navButtons}>
-        <Button
-          variant="secondary"
-          disabled={isFirstStep || isSubmitting}
-          onClick={handleBack}
-          aria-label={
-            isFirstStep
-              ? 'Back (unavailable on first step)'
-              : `Back to ${STEPS[currentStepIndex - 1].label}`
-          }
-        >
-          Back
-        </Button>
-
-        <div className={styles.navRight}>
-          <Button
-            variant="ghost"
-            onClick={() => setShowDiscardModal(true)}
-            disabled={isSubmitting}
-            aria-label="Save and exit verification"
-          >
-            Save &amp; Exit
-          </Button>
-          <Button
-            variant="primary"
-            loading={isSubmitting}
-            disabled={isNextDisabled}
-            onClick={handleNext}
-            aria-label={isSubmitting ? 'Submitting, please wait' : nextButtonLabel}
-          >
-            {nextButtonLabel}
-          </Button>
-        </div>
       </div>
 
-      {/* Discard Confirmation Modal */}
+      {/* Remove document confirmation modal */}
       <Modal
-        open={showDiscardModal}
-        onClose={() => setShowDiscardModal(false)}
-        title="Discard verification progress?"
+        open={isConfirmingRemoveDoc}
+        onClose={cancelRemoveDoc}
+        title="Remove Document"
       >
-        <div className={styles.modalContent}>
-          <p>
-            If you exit now, your progress will be saved and you can continue later. Are you sure you want to exit?
-          </p>
-          <div className={styles.modalButtons}>
-            <Button
-              variant="secondary"
-              onClick={() => setShowDiscardModal(false)}
-            >
-              Continue Verification
-            </Button>
-            <Button
-              variant="destructive"
-              onClick={handleDiscardConfirm}
-            >
-              Exit Anyway
-            </Button>
-          </div>
+        <p style={styles.modalBody}>
+          Are you sure you want to remove the uploaded document? You will need to upload a new one to proceed.
+        </p>
+        <div style={styles.modalActions}>
+          <Button variant="secondary" size="md" onClick={cancelRemoveDoc}>
+            Cancel
+          </Button>
+          <Button variant="destructive" size="md" onClick={executeRemoveDoc}>
+            Remove
+          </Button>
         </div>
       </Modal>
     </div>
   );
-};
+}
 
-export default KYCVerificationWizard;
+// ─── Sub-components ───────────────────────────────────────────────────────────
+
+// ── Personal Info Step ──
+
+interface PersonalInfoStepProps {
+  values: PersonalInfo;
+  errors: PersonalInfoErrors;
+  onChange: (field: keyof PersonalInfo) => (value: string) => void;
+}
+
+function PersonalInfoStep({ values, errors, onChange }: PersonalInfoStepProps) {
+  return (
+    <div style={styles.formGrid}>
+      <Input
+        label="First Name"
+        value={values.firstName}
+        onChange={onChange('firstName')}
+        placeholder="Enter your first name"
+        type="text"
+        required={true}
+        error={errors.firstName}
+      />
+      <Input
+        label="Last Name"
+        value={values.lastName}
+        onChange={onChange('lastName')}
+        placeholder="Enter your last name"
+        type="text"
+        required={true}
+        error={errors.lastName}
+      />
+      <Input
+        label="Date of Birth"
+        value={values.dateOfBirth}
+        onChange={onChange('dateOfBirth')}
+        placeholder="YYYY-MM-DD"
+        type="text"
+        required={true}
+        error={errors.dateOfBirth}
+      />
+      <Select
+        label="Nationality"
+        value={values.nationality}
+        onChange={onChange('nationality')}
+        options={NATIONALITY_OPTIONS}
+      />
+      {errors.nationality && (
+        <p role="alert" style={styles.selectError}>
+          {errors.nationality}
+        </p>
+      )}
+      <div style={styles.fullWidth}>
+        <Input
+          label="Residential Address"
+          value={values.address}
+          onChange={onChange('address')}
+          placeholder="Enter your full address"
+          type="text"
+          required={true}
+          error={errors.address}
+        />
+      </div>
+    </div>
+  );
+}
+
+// ── Document Upload Step ──
+
+interface DocumentUploadStepProps {
+  uploadedDoc: UploadedFile | null;
+  isUploading: boolean;
+  isDeletingDoc: boolean;
+  uploadError: string | null;
+  onFiles: (files: File[]) => void;
+  onRemove: () => void;
+}
+
+function DocumentUploadStep({
+  uploadedDoc,
+  isUploading,
+  isDeletingDoc,
+  uploadError,
+  onFiles,
+  onRemove,
+}: DocumentUploadStepProps) {
+  return (
+    <div style={styles.stepContent}>
+      <p style={styles.stepDescription}>
+        Upload a government-issued photo ID (passport, national ID card, or driver's licence).
+        Accepted formats: PDF, JPG, PNG. Maximum size: 10 MB.
+      </p>
+
+      {/* Empty state — no file selected */}
+      {!uploadedDoc && !isUploading && (
+        <FileUpload
+          accept={['application/pdf', 'image/jpeg', 'image/png']}
+          maxSizeMb={10}
+          multiple={false}
+          onFiles={onFiles}
+          error={uploadError ?? undefined}
+          disabled={isUploading}
+        />
+      )}
+
+      {/* Upload error */}
+      {uploadError && !isUploading && (
+        <div role="alert" style={styles.errorBanner}>
+          <Icon name="alert" size="sm" aria-hidden={true} />
+          <span>{uploadError}</span>
+        </div>
+      )}
+
+      {/* Uploading spinner */}
+      {isUploading && (
+        <div style={styles.spinnerRow}>
+          <Spinner size="md" label="Uploading document" />
+          <span style={styles.spinnerLabel}>Uploading document…</span>
+        </div>
+      )}
+
+      {/* Uploaded file row */}
+      {uploadedDoc && !isUploading && (
+        <div style={styles.fileRow} aria-label={`Uploaded file: ${uploadedDoc.file.name}`}>
+          <Icon name="check" size="sm" aria-hidden={true} />
+          <span style={styles.fileName}>{uploadedDoc.file.name}</span>
+          <span style={styles.fileSize}>
+            ({(uploadedDoc.file.size / 1024 / 1024).toFixed(2)} MB)
+          </span>
+
+          {isDeletingDoc ? (
+            <Spinner size="sm" label="Removing document" />
+          ) : (
+            <IconButton
+              variant="ghost"
+              size="sm"
+              icon={<Icon name="trash" size="sm" aria-hidden={true} />}
+              aria-label={`Remove ${uploadedDoc.file.name}`}
+              onClick={onRemove}
+            />
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Selfie Step ──
+
+interface SelfieStepProps {
+  selfieFile: SelfieFile | null;
+  isUploading: boolean;
+  selfieError: string | null;
+  onFiles: (files: File[]) => void;
+}
+
+function SelfieStep({ selfieFile, isUploading, selfieError, onFiles }: SelfieStepProps) {
+  return (
+    <div style={styles.stepContent}>
+      <p style={styles.stepDescription}>
+        Take or upload a clear selfie of your face. Make sure your face is fully visible,
+        well-lit, and not obscured by glasses, hats, or masks. Accepted formats: JPG, PNG.
+        Maximum size: 10 MB.
+      </p>
+
+      {/* Selfie upload error */}
+      {selfieError && (
+        <div role="alert" style={styles.errorBanner}>
+          <Icon name="alert" size="sm" aria-hidden={true} />
+          <span>{selfieError}</span>
+        </div>
+      )}
+
+      {/* Uploading spinner */}
+      {isUploading && (
+        <div style={styles.spinnerRow}>
+          <Spinner size="md" label="Uploading selfie" />
+          <span style={styles.spinnerLabel}>Uploading selfie…</span>
+        </div>
+      )}
+
+      {/* File picker — shown when no selfie yet */}
+      {!selfieFile && !isUploading && (
+        <FileUpload
+          accept={['image/jpeg', 'image/png']}
+          maxSizeMb={10}
+          multiple={false}
+          onFiles={onFiles}
+          error={selfieError ?? undefined}
+          disabled={isUploading}
+        />
+      )}
+
+      {/* Uploaded selfie row */}
+      {selfieFile && !isUploading && (
+        <div style={styles.fileRow} aria-label={`Selfie uploaded: ${selfieFile.file.name}`}>
+          <Icon name="check" size="sm" aria-hidden={true} />
+          <span style={styles.fileName}>{selfieFile.file.name}</span>
+          <span style={styles.fileSize}>
+            ({(selfieFile.file.size / 1024 / 1024).toFixed(2)} MB)
+          </span>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => onFiles([])}
+          >
+            Change
+          </Button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Verification Status Screen ──
+
+interface VerificationStatusScreenProps {
+  status: VerificationStatus;
+  rejectionReason: string;
+  onRestart: () => void;
+}
+
+function VerificationStatusScreen({ status, rejectionReason, onRestart }: VerificationStatusScreenProps) {
+  const isApproved = status === 'approved';
+  const isPending = status === 'pending-review';
+  const isRejected = status === 'rejected';
+
+  return (
+    <Card padding="lg">
+      <div style={styles.statusCard}>
+        <h2 style={styles.statusHeading}>Verification Status</h2>
+
+        <div style={styles.badgeRow}>
+          {isPending && (
+            <Badge variant="warning">Pending Review</Badge>
+          )}
+          {isApproved && (
+            <Badge variant="success">Approved</Badge>
+          )}
+          {isRejected && (
+            <Badge variant="danger">Rejected</Badge>
+          )}
+        </div>
+
+        {isPending && (
+          <p style={styles.statusMessage}>
+            Your documents have been submitted and are currently under review. This typically
+            takes 1–2 business days. We'll notify you by email once the review is complete.
+          </p>
+        )}
+
+        {isApproved && (
+          <div style={styles.approvedContent}>
+            <Icon name="check" size="lg" aria-hidden={true} />
+            <p style={styles.statusMessage}>
+              Your identity has been successfully verified. You now have full access to all
+              platform features.
+            </p>
+          </div>
+        )}
+
+        {isRejected && (
+          <div style={styles.rejectedContent}>
+            <div role="alert" style={styles.rejectionAlert}>
+              <Icon name="alert" size="sm" aria-hidden={true} />
+              <strong>Reason for rejection:</strong>
+            </div>
+            <p style={styles.rejectionReason}>{rejectionReason}</p>
+            <p style={styles.statusMessage}>
+              Please review the reason above and restart the verification process with the
+              correct documents.
+            </p>
+          </div>
+        )}
+
+        {(isRejected || isPending) && (
+          <div style={styles.restartRow}>
+            <Button variant="primary" size="lg" onClick={onRestart}>
+              {isRejected ? 'Restart Verification' : 'Return to Home'}
+            </Button>
+          </div>
+        )}
+
+        {isApproved && (
+          <div style={styles.restartRow}>
+            <Button variant="secondary" size="lg" onClick={onRestart}>
+              Start New Verification
+            </Button>
+          </div>
+        )}
+      </div>
+    </Card>
+  );
+}
+
+// ─── Utility ─────────────────────────────────────────────────────────────────
+
+function simulateAsync(ms: number): Promise<void> {
+  return new Promise((resolve, reject) => {
+    setTimeout(() => {
+      // 10% chance of simulated failure for demo
+      if (Math.random() < 0.1) reject(new Error('Simulated network error'));
+      else resolve();
+    }, ms);
+  });
+}
+
+// ─── Styles ───────────────────────────────────────────────────────────────────
+
+const styles: Record<string, React.CSSProperties> = {
+  page: {
+    minHeight: '100vh',
+    backgroundColor: 'var(--color-neutral-100)',
+    display: 'flex',
+    justifyContent: 'center',
+    alignItems: 'flex-start',
+    padding: 'var(--spacing-8) var(--spacing-4)',
+    fontFamily: 'var(--font-family-sans)',
+    color: 'var(--color-foreground)',
+  },
+  container: {
+    width: '100%',
+    maxWidth: '640px',
+    display: 'flex',
+    flexDirection: 'column',
+    gap: 'var(--spacing-6)',
+  },
+  stepperWrapper: {
+    overflowX: 'auto',
+    paddingBottom: 'var(--spacing-1)',
+  },
+  stepHeading: {
+    fontSize: 'var(--font-size-xl)',
+    fontWeight: 'var(--font-weight-semibold)' as unknown as number,
+    lineHeight: 'var(--line-height-tight)',
+    color: 'var(--color-neutral-900)',
+    marginBottom: 'var(--spacing-6)',
+    outline: 'none',
+  },
+  formGrid: {
+    display: 'grid',
+    gridTemplateColumns: '1fr 1fr',
+    gap: 'var(--spacing-4)',
+  },
+  fullWidth: {
+    gridColumn: '1 / -1',
+  },
+  selectError: {
+    gridColumn: '1 / -1',
+    fontSize: 'var(--font-size-sm)',
+    color: 'var(--color-danger)',
+    margin: '0',
+  },
+  stepContent: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: 'var(--spacing-4)',
+  },
+  stepDescription: {
+    fontSize: 'var(--font-size-sm)',
+    color: 'var(--color-muted-foreground)',
+    lineHeight: 'var(--line-height-normal)',
+    margin: '0 0 var(--spacing-2) 0',
+  },
+  navRow: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    gap: 'var(--spacing-3)',
+  },
+  globalError: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 'var(--spacing-2)',
+    padding: 'var(--spacing-3) var(--spacing-4)',
+    backgroundColor: '#FEF2F2',
+    border: '1px solid var(--color-danger)',
+    borderRadius: 'var(--radius-md)',
+    color: 'var(--color-danger)',
+    fontSize: 'var(--font-size-sm)',
+  },
+  errorBanner: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 'var(--spacing-2)',
+    padding: 'var(--spacing-3) var(--spacing-4)',
+    backgroundColor: '#FEF2F2',
+    border: '1px solid var(--color-danger)',
+    borderRadius: 'var(--radius-md)',
+    color: 'var(--color-danger)',
+    fontSize: 'var(--font-size-sm)',
+  },
+  spinnerRow: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 'var(--spacing-3)',
+    padding: 'var(--spacing-4)',
+    backgroundColor: 'var(--color-neutral-100)',
+    borderRadius: 'var(--radius-md)',
+    border: '1px solid var(--color-border)',
+  },
+  spinnerLabel: {
+    fontSize: 'var(--font-size-sm)',
+    color: 'var(--color-muted-foreground)',
+  },
+  fileRow: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 'var(--spacing-2)',
+    padding: 'var(--spacing-3) var(--spacing-4)',
+    backgroundColor: 'var(--color-neutral-100)',
+    borderRadius: 'var(--radius-md)',
+    border: '1px solid var(--color-border)',
+    flexWrap: 'wrap',
+  },
+  fileName: {
+    fontSize: 'var(--font-size-sm)',
+    fontWeight: 'var(--font-weight-medium)' as unknown as number,
+    color: 'var(--color-neutral-900)',
+    flex: 1,
+    wordBreak: 'break-all',
+  },
+  fileSize: {
+    fontSize: 'var(--font-size-xs)',
+    color: 'var(--color-muted-foreground)',
+  },
+  modalBody: {
+    fontSize: 'var(--font-size-base)',
+    color: 'var(--color-neutral-600)',
+    lineHeight: 'var(--line-height-normal)',
+    marginBottom: 'var(--spacing-6)',
+  },
+  modalActions: {
+    display: 'flex',
+    justifyContent: 'flex-end',
+    gap: 'var(--spacing-3)',
+  },
+  statusCard: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: 'var(--spacing-4)',
+    alignItems: 'flex-start',
+  },
+  statusHeading: {
+    fontSize: 'var(--font-size-2xl)',
+    fontWeight: 'var(--font-weight-bold)' as unknown as number,
+    color: 'var(--color-neutral-900)',
+    margin: 0,
+  },
+  badgeRow: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 'var(--spacing-2)',
+  },
+  statusMessage: {
+    fontSize: 'var(--font-size-base)',
+    color: 'var(--color-neutral-600)',
+    lineHeight: 'var(--line-height-normal)',
+    margin: 0,
+  },
+  approvedContent: {
+    display: 'flex',
+    alignItems: 'flex-start',
+    gap: 'var(--spacing-3)',
+    color: 'var(--color-success)',
+  },
+  rejectedContent: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: 'var(--spacing-3)',
+    width: '100%',
+  },
+  rejectionAlert: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 'var(--spacing-2)',
+    color: 'var(--color-danger)',
+    fontSize: 'var(--font-size-sm)',
+    fontWeight: 'var(--font-weight-semibold)' as unknown as number,
+  },
+  rejectionReason: {
+    fontSize: 'var(--font-size-sm)',
+    color: 'var(--color-neutral-600)',
+    lineHeight: 'var(--line-height-normal)',
+    padding: 'var(--spacing-3) var(--spacing-4)',
+    backgroundColor: '#FEF2F2',
+    border: '1px solid var(--color-danger)',
+    borderRadius: 'var(--radius-md)',
+    margin: 0,
+  },
+  restartRow: {
+    marginTop: 'var(--spacing-4)',
+  },
+  srOnly: {
+    position: 'absolute',
+    width: '1px',
+    height: '1px',
+    padding: 0,
+    margin: '-1px',
+    overflow: 'hidden',
+    clip: 'rect(0,0,0,0)',
+    whiteSpace: 'nowrap',
+    border: 0,
+  },
+};

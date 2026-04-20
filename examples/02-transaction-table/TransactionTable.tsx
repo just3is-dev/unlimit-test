@@ -1,62 +1,53 @@
 // @ts-nocheck
-import React, { useState, useCallback, KeyboardEvent } from 'react';
+import React, { useState, useCallback, useRef, useEffect } from 'react';
 import {
   Badge,
   Button,
-  Card,
-  Icon,
   IconButton,
-  Modal,
   Select,
-  Skeleton,
   Spinner,
+  Skeleton,
+  Icon,
+  Modal,
 } from '@unlimit/ui';
-import styles from './TransactionTable.module.css';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
 export type TransactionStatus = 'pending' | 'completed' | 'failed' | 'refunded';
-export type PaymentMethod = 'visa' | 'mastercard' | 'amex' | 'other';
+export type PaymentMethod = 'visa' | 'mastercard' | 'amex';
 
 export interface Transaction {
   id: string;
   date: string;           // ISO-8601
-  amount: number;
-  currency: string;       // e.g. 'USD'
+  amount: number;         // positive = credit, negative = debit
+  currency: string;
   status: TransactionStatus;
   merchant: string;
   paymentMethod: PaymentMethod;
-  last4?: string;
 }
 
 type SortKey = 'date' | 'amount' | 'status' | 'merchant' | 'paymentMethod';
 type SortDir = 'asc' | 'desc' | 'none';
 
 interface SortState {
-  key: SortKey;
+  key: SortKey | null;
   dir: SortDir;
 }
 
-export interface TransactionTableProps {
-  /** All transactions to display (consumer handles data fetching) */
+interface TransactionTableProps {
   transactions?: Transaction[];
-  /** True while the initial data is being fetched */
   isLoading?: boolean;
-  /** True while a sort / page change is in-flight */
-  isFetching?: boolean;
-  /** Non-null string triggers the error state */
   error?: string | null;
-  /** Called when the user wants to retry after an error */
   onRetry?: () => void;
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
-const STATUS_BADGE_VARIANT: Record<TransactionStatus, 'warning' | 'success' | 'danger' | 'neutral'> = {
+const STATUS_BADGE_VARIANT: Record<TransactionStatus, 'warning' | 'success' | 'danger' | 'info'> = {
   pending:   'warning',
   completed: 'success',
   failed:    'danger',
-  refunded:  'neutral',
+  refunded:  'info',
 };
 
 const STATUS_LABEL: Record<TransactionStatus, string> = {
@@ -66,18 +57,16 @@ const STATUS_LABEL: Record<TransactionStatus, string> = {
   refunded:  'Refunded',
 };
 
-const PAYMENT_ICON_NAME: Record<PaymentMethod, 'visa' | 'mastercard' | 'amex' | null> = {
+const PAYMENT_ICON: Record<PaymentMethod, 'visa' | 'mastercard' | 'amex'> = {
   visa:       'visa',
   mastercard: 'mastercard',
   amex:       'amex',
-  other:      null,
 };
 
 const PAYMENT_LABEL: Record<PaymentMethod, string> = {
   visa:       'Visa',
   mastercard: 'Mastercard',
-  amex:       'Amex',
-  other:      'Other',
+  amex:       'American Express',
 };
 
 function formatDate(iso: string): string {
@@ -87,22 +76,23 @@ function formatDate(iso: string): string {
 }
 
 function formatAmount(amount: number, currency: string): string {
-  return new Intl.NumberFormat('en-US', { style: 'currency', currency }).format(amount);
+  const abs = Math.abs(amount).toLocaleString('en-US', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+  const sign = amount >= 0 ? '+' : '\u2212'; // U+2212 MINUS SIGN
+  return `${sign}\u00A0${currency}\u00A0${abs}`;
 }
 
-function sortTransactions(txns: Transaction[], sort: SortState): Transaction[] {
-  if (sort.dir === 'none') return txns;
-  return [...txns].sort((a, b) => {
-    let cmp = 0;
-    switch (sort.key) {
-      case 'date':          cmp = a.date.localeCompare(b.date); break;
-      case 'amount':        cmp = a.amount - b.amount; break;
-      case 'status':        cmp = a.status.localeCompare(b.status); break;
-      case 'merchant':      cmp = a.merchant.localeCompare(b.merchant); break;
-      case 'paymentMethod': cmp = a.paymentMethod.localeCompare(b.paymentMethod); break;
-    }
-    return sort.dir === 'asc' ? cmp : -cmp;
-  });
+function compareValues(a: Transaction, b: Transaction, key: SortKey): number {
+  switch (key) {
+    case 'date':          return new Date(a.date).getTime() - new Date(b.date).getTime();
+    case 'amount':        return a.amount - b.amount;
+    case 'status':        return a.status.localeCompare(b.status);
+    case 'merchant':      return a.merchant.localeCompare(b.merchant);
+    case 'paymentMethod': return a.paymentMethod.localeCompare(b.paymentMethod);
+    default:              return 0;
+  }
 }
 
 const ROWS_PER_PAGE_OPTIONS = [
@@ -111,349 +101,645 @@ const ROWS_PER_PAGE_OPTIONS = [
   { value: '100', label: '100' },
 ];
 
-const SKELETON_ROW_COUNT = 6;
+// ─── Visually-hidden utility ──────────────────────────────────────────────────
+
+const srOnly: React.CSSProperties = {
+  position: 'absolute',
+  width: '1px',
+  height: '1px',
+  padding: 0,
+  margin: '-1px',
+  overflow: 'hidden',
+  clip: 'rect(0,0,0,0)',
+  whiteSpace: 'nowrap',
+  border: 0,
+};
 
 // ─── Sub-components ──────────────────────────────────────────────────────────
 
-interface SortButtonProps {
-  label: string;
-  sortKey: SortKey;
-  currentSort: SortState;
-  onSort: (key: SortKey) => void;
+interface SortIconProps {
+  columnKey: SortKey;
+  sort: SortState;
 }
-
-const SortButton: React.FC<SortButtonProps> = ({ label, sortKey, currentSort, onSort }) => {
-  const isActive = currentSort.key === sortKey && currentSort.dir !== 'none';
-  const ariaSortMap: Record<SortDir, 'ascending' | 'descending' | 'none'> = {
-    asc:  'ascending',
-    desc: 'descending',
-    none: 'none',
-  };
-  const ariaSort = isActive ? ariaSortMap[currentSort.dir] : 'none';
-
-  const iconName =
-    isActive && currentSort.dir === 'asc' ? 'chevron-right' : 'chevron-down';
-
+const SortIcon: React.FC<SortIconProps> = ({ columnKey, sort }) => {
+  if (sort.key !== columnKey || sort.dir === 'none') {
+    return (
+      <span style={{ opacity: 0.35, marginLeft: 'var(--spacing-1)', display: 'inline-flex' }}>
+        <Icon name="chevron-down" size="sm" aria-hidden />
+      </span>
+    );
+  }
   return (
-    <th
-      scope="col"
-      aria-sort={ariaSort}
-      className={styles.th}
+    <span
+      style={{
+        marginLeft: 'var(--spacing-1)',
+        display: 'inline-flex',
+        transform: sort.dir === 'asc' ? 'rotate(180deg)' : 'none',
+        transition: 'transform 150ms ease',
+        color: 'var(--color-brand-primary)',
+      }}
     >
-      <button
-        type="button"
-        className={`${styles.sortBtn} ${isActive ? styles.sortBtnActive : ''}`}
-        onClick={() => onSort(sortKey)}
-        aria-label={`Sort by ${label}${
-          isActive
-            ? currentSort.dir === 'asc'
-              ? ', currently ascending'
-              : ', currently descending'
-            : ''
-        }`}
-      >
-        <span>{label}</span>
-        <Icon
-          name={iconName}
-          size="sm"
-          aria-hidden
-          // Rotate icon for ascending state via CSS class
-        />
-      </button>
-    </th>
+      <Icon name="chevron-down" size="sm" aria-hidden />
+    </span>
   );
 };
 
-// ─── Main Component ──────────────────────────────────────────────────────────
+// ─── Main Component ───────────────────────────────────────────────────────────
 
 export const TransactionTable: React.FC<TransactionTableProps> = ({
   transactions = [],
   isLoading = false,
-  isFetching = false,
   error = null,
   onRetry,
 }) => {
-  const [sort, setSort] = useState<SortState>({ key: 'date', dir: 'desc' });
-  const [page, setPage] = useState(1);
+  const [sort, setSort]               = useState<SortState>({ key: null, dir: 'none' });
+  const [page, setPage]               = useState(1);
   const [rowsPerPage, setRowsPerPage] = useState('25');
-  const [selectedTx, setSelectedTx] = useState<Transaction | null>(null);
+  const [selectedTx, setSelectedTx]   = useState<Transaction | null>(null);
+  const tableRef                      = useRef<HTMLTableElement>(null);
+  const headingRef                    = useRef<HTMLHeadingElement>(null);
 
-  const rpp = parseInt(rowsPerPage, 10);
+  // Reset to page 1 when sort or rowsPerPage changes
+  useEffect(() => { setPage(1); }, [sort, rowsPerPage]);
 
-  // Sort
-  const sorted = sortTransactions(transactions, sort);
-
-  // Paginate
-  const totalPages = Math.max(1, Math.ceil(sorted.length / rpp));
-  const pageRows = sorted.slice((page - 1) * rpp, page * rpp);
+  // Return focus to table heading after sort/page change so focus is not lost
+  const prevSortRef = useRef(sort);
+  useEffect(() => {
+    if (prevSortRef.current !== sort) {
+      prevSortRef.current = sort;
+      headingRef.current?.focus();
+    }
+  }, [sort]);
 
   const handleSort = useCallback((key: SortKey) => {
     setSort(prev => {
       if (prev.key !== key) return { key, dir: 'asc' };
       if (prev.dir === 'asc')  return { key, dir: 'desc' };
-      if (prev.dir === 'desc') return { key, dir: 'none' };
-      return { key, dir: 'asc' };
+      return { key: null, dir: 'none' };
     });
-    setPage(1);
   }, []);
 
-  const handleRowsPerPageChange = (val: string) => {
-    setRowsPerPage(val);
-    setPage(1);
-  };
-
-  const openModal = (tx: Transaction) => setSelectedTx(tx);
-  const closeModal = () => setSelectedTx(null);
-
-  const handleRowKeyDown = (e: KeyboardEvent<HTMLTableRowElement>, tx: Transaction) => {
-    if (e.key === 'Enter' || e.key === ' ') {
-      e.preventDefault();
-      openModal(tx);
-    }
-  };
-
-  // ── Render states ──────────────────────────────────────────────────────────
-
-  const renderSkeletonRows = () =>
-    Array.from({ length: SKELETON_ROW_COUNT }).map((_, i) => (
-      <tr key={i} className={styles.skeletonRow}>
-        {[120, 80, 90, 140, 100].map((w, j) => (
-          <td key={j} className={styles.td}>
-            <Skeleton variant="rect" width={w} height={16} />
-          </td>
-        ))}
-      </tr>
-    ));
-
-  const renderEmptyState = () => (
-    <tr>
-      <td colSpan={5} className={styles.emptyCell}>
-        <div className={styles.emptyState} role="status">
-          <Icon name="info" size="lg" aria-hidden />
-          <p className={styles.emptyText}>No transactions found.</p>
-          <p className={styles.emptySubtext}>Try adjusting your filters or check back later.</p>
-        </div>
-      </td>
-    </tr>
+  const handleRowKeyDown = useCallback(
+    (e: React.KeyboardEvent<HTMLTableRowElement>, tx: Transaction) => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        setSelectedTx(tx);
+      }
+    },
+    []
   );
 
-  const renderErrorState = () => (
-    <tr>
-      <td colSpan={5} className={styles.emptyCell}>
-        <div className={styles.errorState} role="alert">
-          <Icon name="alert" size="lg" aria-hidden />
-          <p className={styles.errorText}>Failed to load transactions.</p>
-          {onRetry && (
-            <Button variant="secondary" size="sm" onClick={onRetry}>
-              Retry
-            </Button>
-          )}
-        </div>
-      </td>
-    </tr>
+  const handleHeaderKeyDown = useCallback(
+    (e: React.KeyboardEvent<HTMLTableCellElement>, key: SortKey) => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        handleSort(key);
+      }
+    },
+    [handleSort]
   );
 
-  const renderRows = () =>
-    pageRows.map(tx => {
-      const iconName = PAYMENT_ICON_NAME[tx.paymentMethod];
-      return (
-        <tr
-          key={tx.id}
-          className={styles.row}
-          role="button"
-          tabIndex={0}
-          aria-label={`View transaction from ${tx.merchant} on ${formatDate(tx.date)}`}
-          onClick={() => openModal(tx)}
-          onKeyDown={e => handleRowKeyDown(e, tx)}
-        >
-          {/* Date */}
-          <td className={styles.td}>
-            <span>{formatDate(tx.date)}</span>
-          </td>
+  // Derived data
+  const rpp    = parseInt(rowsPerPage, 10);
+  const sorted = sort.key
+    ? [...transactions].sort((a, b) => {
+        const cmp = compareValues(a, b, sort.key!);
+        return sort.dir === 'asc' ? cmp : -cmp;
+      })
+    : transactions;
 
-          {/* Amount */}
-          <td className={styles.td}>
-            <span
-              aria-label={`${tx.currency} ${tx.amount.toFixed(2)}`}
-              className={styles.amount}
-            >
-              {formatAmount(tx.amount, tx.currency)}
-            </span>
-          </td>
+  const totalPages  = Math.max(1, Math.ceil(sorted.length / rpp));
+  const safePage    = Math.min(page, totalPages);
+  const pageStart   = (safePage - 1) * rpp;
+  const pageEnd     = Math.min(pageStart + rpp, sorted.length);
+  const pageRows    = sorted.slice(pageStart, pageEnd);
 
-          {/* Status */}
-          <td className={styles.td}>
-            <Badge variant={STATUS_BADGE_VARIANT[tx.status]}>
-              {STATUS_LABEL[tx.status]}
-            </Badge>
-            <span className={styles.srOnly}>Status: {STATUS_LABEL[tx.status]}</span>
-          </td>
+  const isFirstPage = safePage === 1;
+  const isLastPage  = safePage === totalPages;
 
-          {/* Merchant */}
-          <td className={styles.td}>
-            <span className={styles.merchant}>{tx.merchant}</span>
-          </td>
-
-          {/* Payment Method */}
-          <td className={styles.td}>
-            <span className={styles.paymentMethod}>
-              {iconName && (
-                <Icon name={iconName} size="sm" aria-hidden />
-              )}
-              <span>{PAYMENT_LABEL[tx.paymentMethod]}</span>
-              {tx.last4 && (
-                <span
-                  className={styles.last4}
-                  aria-label={`ending in ${tx.last4}`}
-                >
-                  ···· {tx.last4}
-                </span>
-              )}
-            </span>
-          </td>
-        </tr>
-      );
-    });
-
-  // ── Modal content ──────────────────────────────────────────────────────────
-
-  const renderModalContent = () => {
-    if (!selectedTx) return null;
-    const tx = selectedTx;
-    const iconName = PAYMENT_ICON_NAME[tx.paymentMethod];
-    return (
-      <div className={styles.modalBody}>
-        <dl className={styles.detailGrid}>
-          <dt>Date</dt>
-          <dd>{formatDate(tx.date)}</dd>
-
-          <dt>Merchant</dt>
-          <dd>{tx.merchant}</dd>
-
-          <dt>Amount</dt>
-          <dd>
-            <span aria-label={`${tx.currency} ${tx.amount.toFixed(2)}`}>
-              {formatAmount(tx.amount, tx.currency)}
-            </span>
-          </dd>
-
-          <dt>Status</dt>
-          <dd>
-            <Badge variant={STATUS_BADGE_VARIANT[tx.status]}>
-              {STATUS_LABEL[tx.status]}
-            </Badge>
-          </dd>
-
-          <dt>Payment Method</dt>
-          <dd>
-            <span className={styles.paymentMethod}>
-              {iconName && <Icon name={iconName} size="sm" aria-hidden />}
-              <span>{PAYMENT_LABEL[tx.paymentMethod]}</span>
-              {tx.last4 && (
-                <span
-                  className={styles.last4}
-                  aria-label={`ending in ${tx.last4}`}
-                >
-                  ···· {tx.last4}
-                </span>
-              )}
-            </span>
-          </dd>
-
-          <dt>Transaction ID</dt>
-          <dd className={styles.txId}>{tx.id}</dd>
-        </dl>
-      </div>
-    );
+  const ariaSortAttr = (key: SortKey): 'ascending' | 'descending' | 'none' => {
+    if (sort.key !== key) return 'none';
+    if (sort.dir === 'asc')  return 'ascending';
+    if (sort.dir === 'desc') return 'descending';
+    return 'none';
   };
 
-  // ── Layout ─────────────────────────────────────────────────────────────────
+  // ── Pending rows (functional state) ────────────────────────────────────────
+  const pendingRows    = transactions.filter(t => t.status === 'pending');
+  const hasPendingRows = pendingRows.length > 0;
 
-  const isInitialLoading = isLoading && transactions.length === 0;
-  const isEmpty = !isLoading && !error && transactions.length === 0;
+  // ── Skeleton rows for loading transitions ──────────────────────────────────
+  const skeletonRows = Array.from({ length: 5 });
+
+  const COLUMNS: { key: SortKey; label: string }[] = [
+    { key: 'date',          label: 'Date' },
+    { key: 'amount',        label: 'Amount' },
+    { key: 'status',        label: 'Status' },
+    { key: 'merchant',      label: 'Merchant' },
+    { key: 'paymentMethod', label: 'Payment Method' },
+  ];
 
   return (
     <>
-      <Card padding="lg">
-        {/* Fetching overlay spinner */}
-        {isFetching && !isInitialLoading && (
-          <div className={styles.fetchingBar} role="status" aria-live="polite">
-            <Spinner size="sm" label="Loading transactions" />
-            <span className={styles.fetchingLabel}>Updating…</span>
-          </div>
-        )}
+      <style>{`
+        /* ── Visually-hidden ── */
+        .sr-only {
+          position: absolute;
+          width: 1px;
+          height: 1px;
+          padding: 0;
+          margin: -1px;
+          overflow: hidden;
+          clip: rect(0,0,0,0);
+          white-space: nowrap;
+          border: 0;
+        }
 
-        {/* Scroll container for horizontal overflow */}
-        <div
-          className={styles.tableWrapper}
-          aria-busy={isInitialLoading || isFetching}
-        >
-          <table className={styles.table} aria-label="Transactions">
-            <thead>
-              <tr>
-                <SortButton label="Date"           sortKey="date"          currentSort={sort} onSort={handleSort} />
-                <SortButton label="Amount"         sortKey="amount"        currentSort={sort} onSort={handleSort} />
-                <SortButton label="Status"         sortKey="status"        currentSort={sort} onSort={handleSort} />
-                <SortButton label="Merchant"       sortKey="merchant"      currentSort={sort} onSort={handleSort} />
-                <SortButton label="Payment Method" sortKey="paymentMethod" currentSort={sort} onSort={handleSort} />
-              </tr>
-            </thead>
+        /* ── Table wrapper ── */
+        .tx-table-wrapper {
+          font-family: var(--font-family-sans);
+          background: var(--color-background);
+          border: 1px solid var(--color-border);
+          border-radius: var(--radius-lg);
+          box-shadow: var(--shadow-md);
+          overflow: hidden;
+        }
 
-            <tbody>
-              {isInitialLoading && renderSkeletonRows()}
-              {error            && renderErrorState()}
-              {isEmpty          && renderEmptyState()}
-              {!isInitialLoading && !error && !isEmpty && renderRows()}
-            </tbody>
-          </table>
-        </div>
+        /* ── Scroll container for narrow viewports ── */
+        .tx-scroll-container {
+          overflow-x: auto;
+          -webkit-overflow-scrolling: touch;
+        }
 
-        {/* Pagination */}
-        {!isInitialLoading && !error && transactions.length > 0 && (
-          <div className={styles.pagination}>
-            <div className={styles.rowsPerPage}>
-              <Select
-                label="Rows per page"
-                value={rowsPerPage}
-                onChange={handleRowsPerPageChange}
-                options={ROWS_PER_PAGE_OPTIONS}
-              />
-            </div>
+        /* ── Table ── */
+        .tx-table {
+          width: 100%;
+          border-collapse: collapse;
+          font-size: var(--font-size-sm);
+          color: var(--color-foreground);
+        }
 
-            <span className={styles.pageInfo} aria-live="polite">
-              Page {page} of {totalPages}
-            </span>
+        /* ── Column headers ── */
+        .tx-th {
+          padding: var(--spacing-3) var(--spacing-4);
+          text-align: left;
+          font-weight: var(--font-weight-semibold);
+          font-size: var(--font-size-xs);
+          color: var(--color-muted-foreground);
+          background: var(--color-neutral-100);
+          border-bottom: 1px solid var(--color-border);
+          white-space: nowrap;
+          user-select: none;
+          min-height: 44px;
+        }
 
-            <div className={styles.pageControls}>
-              <IconButton
-                variant="ghost"
-                size="md"
-                icon={<Icon name="chevron-left" size="sm" aria-hidden />}
-                aria-label="Previous page"
-                disabled={page === 1}
-                onClick={() => setPage(p => Math.max(1, p - 1))}
-              />
-              <IconButton
-                variant="ghost"
-                size="md"
-                icon={<Icon name="chevron-right" size="sm" aria-hidden />}
-                aria-label="Next page"
-                disabled={page === totalPages}
-                onClick={() => setPage(p => Math.min(totalPages, p + 1))}
-              />
-            </div>
-          </div>
-        )}
-      </Card>
+        /* ── Sortable header ── */
+        .tx-th-sortable {
+          cursor: pointer;
+          outline: none;
+        }
+        .tx-th-sortable:hover {
+          background: var(--color-neutral-200);
+          color: var(--color-foreground);
+        }
+        /* sorted-asc / sorted-desc active state */
+        .tx-th-sortable[aria-sort='ascending'],
+        .tx-th-sortable[aria-sort='descending'] {
+          background: var(--color-neutral-200);
+          color: var(--color-brand-primary);
+        }
+        /* focus-visible on column header */
+        .tx-th-sortable:focus-visible {
+          outline: 2px solid var(--color-focus-ring);
+          outline-offset: -2px;
+          background: var(--color-neutral-200);
+        }
 
-      {/* Transaction Detail Modal */}
-      <Modal
-        open={selectedTx !== null}
-        onClose={closeModal}
-        title="Transaction Details"
+        /* ── Table rows ── */
+        .tx-tr {
+          border-bottom: 1px solid var(--color-border-subtle);
+          transition: background 120ms ease;
+          cursor: pointer;
+          outline: none;
+          min-height: 44px;
+        }
+        /* hover state */
+        .tx-tr:hover {
+          background: var(--color-neutral-100);
+        }
+        /* focus-visible state */
+        .tx-tr:focus-visible {
+          outline: 2px solid var(--color-focus-ring);
+          outline-offset: -2px;
+          background: var(--color-neutral-100);
+        }
+        .tx-tr:last-child {
+          border-bottom: none;
+        }
+
+        /* ── Cells ── */
+        .tx-td {
+          padding: var(--spacing-3) var(--spacing-4);
+          vertical-align: middle;
+          min-height: 44px;
+        }
+
+        /* ── Amount ── */
+        .tx-amount {
+          font-family: var(--font-family-mono);
+          font-weight: var(--font-weight-medium);
+          white-space: nowrap;
+        }
+        .tx-amount--positive { color: var(--color-success); }
+        .tx-amount--negative { color: var(--color-danger); }
+
+        /* ── Date / secondary text ── */
+        .tx-date {
+          color: var(--color-muted-foreground);
+          font-size: var(--font-size-sm);
+          white-space: nowrap;
+        }
+
+        /* ── Payment method cell ── */
+        .tx-payment {
+          display: flex;
+          align-items: center;
+          gap: var(--spacing-2);
+          color: var(--color-muted-foreground);
+          font-size: var(--font-size-sm);
+        }
+
+        /* ── Pending banner ── */
+        .tx-pending-banner {
+          display: flex;
+          align-items: center;
+          gap: var(--spacing-2);
+          padding: var(--spacing-3) var(--spacing-4);
+          background: #FFF8EC;
+          border-bottom: 1px solid var(--color-border);
+          font-size: var(--font-size-sm);
+          color: var(--color-warning);
+          font-weight: var(--font-weight-medium);
+        }
+
+        /* ── State containers ── */
+        .tx-state-container {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          padding: var(--spacing-12) var(--spacing-8);
+          gap: var(--spacing-4);
+          text-align: center;
+        }
+        .tx-state-title {
+          font-size: var(--font-size-lg);
+          font-weight: var(--font-weight-semibold);
+          color: var(--color-foreground);
+          margin: 0;
+        }
+        .tx-state-desc {
+          font-size: var(--font-size-sm);
+          color: var(--color-muted-foreground);
+          margin: 0;
+        }
+
+        /* ── Pagination ── */
+        .tx-pagination {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          flex-wrap: wrap;
+          gap: var(--spacing-3);
+          padding: var(--spacing-3) var(--spacing-4);
+          border-top: 1px solid var(--color-border);
+          background: var(--color-neutral-100);
+        }
+        .tx-pagination-info {
+          font-size: var(--font-size-sm);
+          color: var(--color-muted-foreground);
+        }
+        .tx-pagination-controls {
+          display: flex;
+          align-items: center;
+          gap: var(--spacing-2);
+        }
+        .tx-pagination-page {
+          font-size: var(--font-size-sm);
+          font-weight: var(--font-weight-medium);
+          color: var(--color-foreground);
+          min-width: 80px;
+          text-align: center;
+        }
+
+        /* ── Table heading (visually hidden, focus target) ── */
+        .tx-heading {
+          position: absolute;
+          width: 1px;
+          height: 1px;
+          padding: 0;
+          margin: -1px;
+          overflow: hidden;
+          clip: rect(0,0,0,0);
+          white-space: nowrap;
+          border: 0;
+        }
+        .tx-heading:focus {
+          position: static;
+          width: auto;
+          height: auto;
+          clip: auto;
+          margin: 0;
+          overflow: visible;
+          white-space: normal;
+          outline: 2px solid var(--color-focus-ring);
+          outline-offset: 2px;
+          padding: var(--spacing-2) var(--spacing-4);
+          font-size: var(--font-size-sm);
+          font-weight: var(--font-weight-semibold);
+          color: var(--color-brand-primary);
+        }
+
+        /* ── Responsive ── */
+        @media (max-width: 767px) {
+          .tx-th, .tx-td {
+            padding: var(--spacing-2) var(--spacing-3);
+          }
+          .tx-col-paymentMethod {
+            display: none;
+          }
+        }
+      `}</style>
+
+      {/* Visually-hidden focus target to receive focus after sort/page changes */}
+      <h2
+        ref={headingRef}
+        tabIndex={-1}
+        className="tx-heading"
+        aria-live="polite"
       >
-        {renderModalContent()}
-      </Modal>
+        Transactions table
+      </h2>
+
+      <div className="tx-table-wrapper">
+
+        {/* ── Pending banner (functional: pending state) ── */}
+        {hasPendingRows && !isLoading && !error && (
+          <div className="tx-pending-banner" role="status" aria-live="polite">
+            <Icon name="alert" size="sm" aria-hidden />
+            <span>
+              {pendingRows.length} transaction{pendingRows.length !== 1 ? 's' : ''} pending
+              &nbsp;— processing may take a few minutes.
+            </span>
+          </div>
+        )}
+
+        {/* ── Loading state ── */}
+        {isLoading && (
+          <div className="tx-state-container" role="status" aria-live="polite">
+            <Spinner size="md" label="Loading transactions" />
+            <p className="tx-state-desc">Loading transactions…</p>
+          </div>
+        )}
+
+        {/* ── Error state ── */}
+        {!isLoading && error && (
+          <div className="tx-state-container" role="alert">
+            <Icon name="alert" size="lg" aria-label="Error loading transactions" />
+            <p className="tx-state-title">Failed to load transactions</p>
+            <p className="tx-state-desc">{error}</p>
+            {onRetry && (
+              <Button variant="secondary" onClick={onRetry}>
+                Retry
+              </Button>
+            )}
+          </div>
+        )}
+
+        {/* ── Empty state ── */}
+        {!isLoading && !error && transactions.length === 0 && (
+          <div
+            className="tx-state-container"
+            role="status"
+            aria-live="polite"
+            aria-label="No transactions found"
+          >
+            <Icon name="info" size="lg" aria-hidden />
+            <p className="tx-state-title">No transactions found</p>
+            <p className="tx-state-desc">Try adjusting your filters or date range.</p>
+          </div>
+        )}
+
+        {/* ── Table ── */}
+        {!isLoading && !error && transactions.length > 0 && (
+          <>
+            <div className="tx-scroll-container">
+              <table
+                ref={tableRef}
+                className="tx-table"
+                aria-label="Transactions"
+              >
+                <caption style={srOnly}>Transactions</caption>
+                <thead>
+                  <tr>
+                    {COLUMNS.map(col => (
+                      <th
+                        key={col.key}
+                        scope="col"
+                        className={`tx-th tx-th-sortable tx-col-${col.key}`}
+                        aria-sort={ariaSortAttr(col.key)}
+                        tabIndex={0}
+                        onClick={() => handleSort(col.key)}
+                        onKeyDown={e => handleHeaderKeyDown(e, col.key)}
+                      >
+                        <span style={{ display: 'inline-flex', alignItems: 'center' }}>
+                          {col.label}
+                          <SortIcon columnKey={col.key} sort={sort} />
+                        </span>
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+
+                <tbody>
+                  {pageRows.map(tx => {
+                    const isPending   = tx.status === 'pending';
+                    const isCompleted = tx.status === 'completed';
+                    const isFailed    = tx.status === 'failed';
+                    const isRefunded  = tx.status === 'refunded';
+
+                    return (
+                      <tr
+                        key={tx.id}
+                        className="tx-tr"
+                        tabIndex={0}
+                        role="button"
+                        aria-label={`View transaction from ${tx.merchant} on ${formatDate(tx.date)}, ${formatAmount(tx.amount, tx.currency)}, status: ${STATUS_LABEL[tx.status]}`}
+                        onClick={() => setSelectedTx(tx)}
+                        onKeyDown={e => handleRowKeyDown(e, tx)}
+                        // Pending row: subtle left border accent
+                        style={isPending ? { borderLeft: '3px solid var(--color-warning)' } : undefined}
+                      >
+                        {/* Date */}
+                        <td className="tx-td tx-col-date">
+                          <span className="tx-date">{formatDate(tx.date)}</span>
+                        </td>
+
+                        {/* Amount — prefix with +/− symbol, never colour-only */}
+                        <td className="tx-td tx-col-amount">
+                          <span
+                            className={`tx-amount ${
+                              tx.amount >= 0 ? 'tx-amount--positive' : 'tx-amount--negative'
+                            }`}
+                          >
+                            {formatAmount(tx.amount, tx.currency)}
+                          </span>
+                        </td>
+
+                        {/* Status — Badge + visually-hidden text for SR */}
+                        <td className="tx-td tx-col-status">
+                          {/* Functional states: pending / completed / failed / refunded */}
+                          {isPending && (
+                            <Badge variant="warning">
+                              {STATUS_LABEL.pending}
+                            </Badge>
+                          )}
+                          {isCompleted && (
+                            <Badge variant="success">
+                              {STATUS_LABEL.completed}
+                            </Badge>
+                          )}
+                          {isFailed && (
+                            <Badge variant="danger">
+                              {STATUS_LABEL.failed}
+                            </Badge>
+                          )}
+                          {isRefunded && (
+                            <Badge variant="info">
+                              {STATUS_LABEL.refunded}
+                            </Badge>
+                          )}
+                          {/* SR-only text so status is not conveyed by colour alone */}
+                          <span style={srOnly}>{STATUS_LABEL[tx.status]}</span>
+                        </td>
+
+                        {/* Merchant */}
+                        <td className="tx-td tx-col-merchant">
+                          <span style={{ fontWeight: 'var(--font-weight-medium)' as React.CSSProperties['fontWeight'] }}>
+                            {tx.merchant}
+                          </span>
+                        </td>
+
+                        {/* Payment method */}
+                        <td className="tx-td tx-col-paymentMethod">
+                          <span className="tx-payment">
+                            <Icon
+                              name={PAYMENT_ICON[tx.paymentMethod]}
+                              size="sm"
+                              aria-hidden
+                            />
+                            <span>{PAYMENT_LABEL[tx.paymentMethod]}</span>
+                          </span>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+
+            {/* ── Pagination ── */}
+            <div className="tx-pagination">
+              <span className="tx-pagination-info">
+                Showing {pageStart + 1}–{pageEnd} of {sorted.length} transactions
+              </span>
+
+              <div className="tx-pagination-controls">
+                {/* Rows per page */}
+                <Select
+                  label="Rows per page"
+                  value={rowsPerPage}
+                  onChange={setRowsPerPage}
+                  options={ROWS_PER_PAGE_OPTIONS}
+                />
+
+                {/* Previous page — disabled on first page */}
+                <IconButton
+                  variant="ghost"
+                  size="md"
+                  icon={<Icon name="chevron-left" size="sm" aria-hidden />}
+                  aria-label={isFirstPage ? 'Disabled — no previous page' : 'Previous page'}
+                  disabled={isFirstPage}
+                  onClick={() => !isFirstPage && setPage(p => p - 1)}
+                />
+
+                <span className="tx-pagination-page" aria-live="polite" aria-atomic="true">
+                  Page {safePage} of {totalPages}
+                </span>
+
+                {/* Next page — disabled on last page */}
+                <IconButton
+                  variant="ghost"
+                  size="md"
+                  icon={<Icon name="chevron-right" size="sm" aria-hidden />}
+                  aria-label={isLastPage ? 'Disabled — no next page' : 'Next page'}
+                  disabled={isLastPage}
+                  onClick={() => !isLastPage && setPage(p => p + 1)}
+                />
+              </div>
+            </div>
+          </>
+        )}
+      </div>
+
+      {/* ── Transaction detail modal ── */}
+      {selectedTx && (
+        <Modal
+          open={!!selectedTx}
+          onClose={() => setSelectedTx(null)}
+          title="Transaction Details"
+        >
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: '1fr 1fr',
+              gap: 'var(--spacing-4)',
+              fontFamily: 'var(--font-family-sans)',
+              fontSize: 'var(--font-size-sm)',
+            }}
+          >
+            {([
+              ['Date',           formatDate(selectedTx.date)],
+              ['Amount',         formatAmount(selectedTx.amount, selectedTx.currency)],
+              ['Status',         STATUS_LABEL[selectedTx.status]],
+              ['Merchant',       selectedTx.merchant],
+              ['Payment Method', PAYMENT_LABEL[selectedTx.paymentMethod]],
+              ['Transaction ID', selectedTx.id],
+            ] as [string, string][]).map(([label, value]) => (
+              <div key={label}>
+                <dt
+                  style={{
+                    color: 'var(--color-muted-foreground)',
+                    fontWeight: 'var(--font-weight-medium)',
+                    marginBottom: 'var(--spacing-1)',
+                  }}
+                >
+                  {label}
+                </dt>
+                <dd
+                  style={{
+                    color: 'var(--color-foreground)',
+                    fontWeight: 'var(--font-weight-semibold)',
+                    margin: 0,
+                  }}
+                >
+                  {value}
+                </dd>
+              </div>
+            ))}
+          </div>
+        </Modal>
+      )}
     </>
   );
 };
