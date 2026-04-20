@@ -79,6 +79,49 @@ Input (text description)
   FinalOutput (JSON)
 ```
 
+### C1 — System Context
+
+```mermaid
+C4Context
+    title System Context — Design-to-Code Pipeline Agent
+
+    Person(dev, "Developer", "Writes a UI component description in plain text")
+    System(pipeline, "Design-to-Code Pipeline", "Generates a React component with state coverage and DS compliance")
+    System_Ext(anthropic, "Anthropic API", "Claude Haiku and Sonnet models")
+
+    Rel(dev, pipeline, "Sends description", "CLI / HTTP API")
+    Rel(pipeline, anthropic, "LLM calls per stage", "HTTPS")
+```
+
+### C2 — Containers
+
+```mermaid
+C4Container
+    title Container Diagram — Design-to-Code Pipeline Agent
+
+    Person(dev, "Developer")
+
+    Container_Boundary(app, "NestJS Application") {
+        Container(cli, "CLI", "ts-node", "Reads input file, prints FinalOutput JSON to stdout")
+        Container(http, "HTTP API", "NestJS/Express", "POST /pipeline → FinalOutput JSON")
+        Container(svc, "PipelineService", "NestJS Service", "Orchestrates the 4-stage pipeline")
+        Container(agents, "Agents", "NestJS Services", "Parser (Haiku) → Analyzer (Sonnet) → Generator (Sonnet) → Validator")
+        Container(reliability, "Reliability", "TypeScript", "SchemaRetry · HallucinationGuard · CoverageCheck · LLMJudge")
+        Container(ds, "DesignSystemService", "NestJS Service", "Loads tokens.json and components.json at startup")
+    }
+
+    System_Ext(anthropic, "Anthropic API", "Claude models via Vercel AI SDK")
+
+    Rel(dev, cli, "npm run cli --")
+    Rel(dev, http, "POST /pipeline")
+    Rel(cli, svc, "run(description)")
+    Rel(http, svc, "run(description)")
+    Rel(svc, agents, "calls sequentially")
+    Rel(svc, ds, "getContext()")
+    Rel(agents, reliability, "wrapped by SchemaRetry")
+    Rel(agents, anthropic, "generateObject()", "HTTPS")
+```
+
 Each stage has a typed Zod schema. Structured output is handled by the Vercel AI SDK
 (`generateObject`). On schema validation failure, `SchemaRetry` re-prompts the model
 with per-field error feedback (up to 3 attempts).
