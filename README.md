@@ -221,6 +221,6 @@ collaboratively with AI tooling throughout the process.
 
 **What didn't work as well:**
 
-- State coverage degrades on complex components: the Generator loses track of required states in long outputs
+- State coverage on complex components improves after the retry loop but is not always complete — decomposing the prompt per wizard step would help further
 - Generated component code is functional but not idiomatic — structure, naming, and separation of concerns reflect prompt instructions rather than team conventions
 - `CoverageCheck` regex patterns miss some valid state implementations, leading to false negatives in the coverage report

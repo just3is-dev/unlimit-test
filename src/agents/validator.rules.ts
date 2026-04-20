@@ -1,6 +1,35 @@
 import { A11yRule } from './validator.types';
 
 /**
+ * Extracts all JSX opening tags for a component by name.
+ *
+ * Fixes two problems with naive `/<Foo[^>]*>/g`:
+ *  1. No word boundary — `<Modal` would also match `<ModalContent`.
+ *  2. `[^>]*` stops at the first `>`, which may be inside a nested JSX expression
+ *     like `icon={<Icon name="trash" />}`, cutting off before `aria-label`.
+ *
+ * This mini-parser tracks brace depth so it only stops at a top-level `>`.
+ */
+function extractTags(code: string, name: string): string[] {
+  const result: string[] = [];
+  const startRe = new RegExp(`<${name}\\b`, 'g');
+  let m: RegExpExecArray | null;
+  while ((m = startRe.exec(code)) !== null) {
+    let depth = 0;
+    for (let i = m.index + m[0].length; i < code.length; i++) {
+      const ch = code[i];
+      if (ch === '{') depth++;
+      else if (ch === '}') depth--;
+      else if (ch === '>' && depth === 0) {
+        result.push(code.slice(m.index, i + 1));
+        break;
+      }
+    }
+  }
+  return result;
+}
+
+/**
  * Component-specific a11y rules derived from components.json `a11y` fields.
  * Only rules that can be checked deterministically via regex.
  */
@@ -9,8 +38,8 @@ export const COMPONENT_A11Y_RULES: Record<string, A11yRule[]> = {
     {
       description: 'IconButton must have aria-label',
       test: (code) => {
-        const iconButtons = code.match(/<IconButton[^>]*/g) ?? [];
-        return iconButtons.every((tag) => /aria-label/.test(tag));
+        const tags = extractTags(code, 'IconButton');
+        return tags.every((tag) => /aria-label/.test(tag));
       },
     },
   ],
@@ -19,8 +48,8 @@ export const COMPONENT_A11Y_RULES: Record<string, A11yRule[]> = {
     {
       description: 'Icon must be either decorative (aria-hidden) or meaningful (aria-label)',
       test: (code) => {
-        const icons = code.match(/<Icon[^>]*/g) ?? [];
-        return icons.every((tag) => /aria-hidden/.test(tag) || /aria-label/.test(tag));
+        const tags = extractTags(code, 'Icon');
+        return tags.every((tag) => /aria-hidden/.test(tag) || /aria-label/.test(tag));
       },
     },
   ],
@@ -29,8 +58,8 @@ export const COMPONENT_A11Y_RULES: Record<string, A11yRule[]> = {
     {
       description: 'Modal must have a title prop',
       test: (code) => {
-        const modals = code.match(/<Modal[^>]*/g) ?? [];
-        return modals.every((tag) => /\btitle=/.test(tag));
+        const tags = extractTags(code, 'Modal');
+        return tags.every((tag) => /\btitle=/.test(tag));
       },
     },
   ],
@@ -39,8 +68,8 @@ export const COMPONENT_A11Y_RULES: Record<string, A11yRule[]> = {
     {
       description: 'Input must have a label prop for screen reader association',
       test: (code) => {
-        const inputs = code.match(/<Input[^>]*/g) ?? [];
-        return inputs.every((tag) => /\blabel=/.test(tag) || /\baria-label=/.test(tag));
+        const tags = extractTags(code, 'Input');
+        return tags.every((tag) => /\blabel=/.test(tag) || /\baria-label=/.test(tag));
       },
     },
   ],
@@ -49,8 +78,8 @@ export const COMPONENT_A11Y_RULES: Record<string, A11yRule[]> = {
     {
       description: 'Select must have a label prop for screen reader association',
       test: (code) => {
-        const selects = code.match(/<Select[^>]*/g) ?? [];
-        return selects.every((tag) => /\blabel=/.test(tag) || /\baria-label=/.test(tag));
+        const tags = extractTags(code, 'Select');
+        return tags.every((tag) => /\blabel=/.test(tag) || /\baria-label=/.test(tag));
       },
     },
   ],
@@ -59,8 +88,8 @@ export const COMPONENT_A11Y_RULES: Record<string, A11yRule[]> = {
     {
       description: 'Stepper must have current prop set to indicate active step (aria-current)',
       test: (code) => {
-        const steppers = code.match(/<Stepper[^>]*/g) ?? [];
-        return steppers.every((tag) => /\bcurrent=/.test(tag));
+        const tags = extractTags(code, 'Stepper');
+        return tags.every((tag) => /\bcurrent=/.test(tag));
       },
     },
   ],
@@ -69,8 +98,8 @@ export const COMPONENT_A11Y_RULES: Record<string, A11yRule[]> = {
     {
       description: 'Spinner should have a label prop for screen reader announcement',
       test: (code) => {
-        const spinners = code.match(/<Spinner[^>]*/g) ?? [];
-        return spinners.every((tag) => /\blabel=/.test(tag));
+        const tags = extractTags(code, 'Spinner');
+        return tags.every((tag) => /\blabel=/.test(tag));
       },
     },
   ],

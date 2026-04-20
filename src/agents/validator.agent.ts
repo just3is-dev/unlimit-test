@@ -30,7 +30,7 @@ export class ValidatorAgent {
   ) {}
 
   async run(input: GeneratorOutput, context: PipelineContext): Promise<ValidatorOutput> {
-    const { files, states_covered, tokens_used } = input.generated_code;
+    const { files, states_covered } = input.generated_code;
     const issues: string[] = [];
     const hallucinations: string[] = [];
 
