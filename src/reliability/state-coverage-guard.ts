@@ -2,8 +2,10 @@ import { Injectable, Logger } from '@nestjs/common';
 
 import { StateCovered } from '@/pipeline/schemas';
 
-import { CSS_STATE_PATTERNS, FUNCTIONAL_STATE_PATTERNS } from './coverage-check.patterns';
-import { CoverageResult } from './coverage-check.types';
+import { CSS_STATE_PATTERNS, FUNCTIONAL_STATE_PATTERNS } from './state-coverage-guard.patterns';
+import { StateCoverageResult } from './state-coverage-guard.types';
+
+export type { StateCoverageResult } from './state-coverage-guard.types';
 
 function capitalize(s: string): string {
   return s.charAt(0).toUpperCase() + s.slice(1);
@@ -22,7 +24,7 @@ function normalizeStateName(state: string): string {
 }
 
 /**
- * CoverageCheck — verifies that every required state is expressed in the
+ * StateCoverageGuard — verifies that every required state is expressed in the
  * generated code using the appropriate pattern for its kind.
  *
  * State kinds:
@@ -36,16 +38,18 @@ function normalizeStateName(state: string): string {
  *   1. Claimed: is the state in states_covered[]?
  *   2. Actual:  does the code contain the expected pattern for that state's kind?
  * Both must pass. This prevents the model from claiming coverage it didn't implement.
+ *
+ * See ADR-002 for the deterministic-first reliability rationale.
  */
 @Injectable()
-export class CoverageCheck {
-  private readonly logger = new Logger(CoverageCheck.name);
+export class StateCoverageGuard {
+  private readonly logger = new Logger(StateCoverageGuard.name);
 
   check(
     requiredStates: string[],
     statesCovered: StateCovered[],
     files: Array<{ filename: string; content: string }>,
-  ): CoverageResult {
+  ): StateCoverageResult {
     const code = files.map((f) => f.content).join('\n');
     // coveredMap keyed by normalized short name, e.g. "hover"
     const coveredMap = new Map(statesCovered.map((s) => [s.name, s.kind]));

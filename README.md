@@ -44,7 +44,7 @@ npm test              # run all unit tests
 npm run test:cov      # with coverage report
 ```
 
-35 unit tests cover the reliability sub-system: `SchemaRetry`, `HallucinationGuard`, and `CoverageCheck`.
+35 unit tests cover the reliability sub-system: `SchemaRetry`, `HallucinationGuard`, and `StateCoverageGuard`.
 
 ---
 
@@ -105,7 +105,7 @@ flowchart TD
         http["HTTP API\nNestJS / Express\nPOST /pipeline"]
         svc["PipelineService\norchestrator"]
         agents["Agents\nParser · Analyzer · Generator · Validator"]
-        reliability["Reliability\nSchemaRetry · HallucinationGuard · CoverageCheck"]
+        reliability["Reliability\nSchemaRetry · HallucinationGuard · StateCoverageGuard"]
         ds["DesignSystemService\ntokens.json · components.json"]
     end
 
@@ -133,7 +133,7 @@ sequenceDiagram
     participant AA as Analyzer (Sonnet)
     participant GA as Generator (Sonnet)
     participant HG as HallucinationGuard
-    participant CC as CoverageCheck
+    participant CC as StateCoverageGuard
     participant VA as Validator
 
     Dev->>PS: run(description)
@@ -170,7 +170,7 @@ Validation runs without any LLM calls:
 
 - **SchemaRetry** — wraps every LLM call; re-prompts with Zod error details on failure
 - **HallucinationGuard** — checks generated code against DS token and component allow-lists
-- **CoverageCheck** — verifies every required state is implemented in the generated code
+- **StateCoverageGuard** — verifies every required state is implemented in the generated code
 - **LLMJudge** — opt-in a11y scoring via `USE_LLM_JUDGE=true` (uses Haiku)
 
 ### Model strategy
@@ -220,13 +220,13 @@ Three ADRs in `docs/adr/` document the key choices:
 **Results are non-deterministic.** Re-running the same input may produce different coverage scores — LLM outputs vary between calls even at `temperature=0` due to sampling. The examples show one representative run.
 
 **State coverage gaps surface actionable feedback.** When the Generator misses states,
-`CoverageCheck` identifies exactly which ones are absent and feeds that back into a
+`StateCoverageGuard` identifies exactly which ones are absent and feeds that back into a
 retry. For example, the KYC wizard has 18 required states — uncovered states are not
 silently ignored but reported in `validation.issues_found` and trigger a targeted
 re-generation. Better prompt decomposition (generate each wizard step separately)
 would improve first-pass coverage on complex components.
 
-**CoverageCheck uses regex, not AST.** Regex patterns scoped to JSX operators
+**StateCoverageGuard uses regex, not AST.** Regex patterns scoped to JSX operators
 (`&&`, `?`) work well for the generated code style but can miss states implemented
 via CSS-in-JS or inline `<style>` blocks. AST-based analysis would be more accurate
 but adds significant complexity.
@@ -264,4 +264,4 @@ collaboratively with AI tooling throughout the process.
 
 - State coverage on complex components improves after the retry loop but is not always complete — decomposing the prompt per wizard step would help further
 - Generated component code is functional but not idiomatic — structure, naming, and separation of concerns reflect prompt instructions rather than team conventions
-- `CoverageCheck` regex patterns miss some valid state implementations, leading to false negatives in the coverage report
+- `StateCoverageGuard` regex patterns miss some valid state implementations, leading to false negatives in the coverage report

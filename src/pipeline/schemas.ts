@@ -58,7 +58,7 @@ export type AnalyzerOutput = z.infer<typeof AnalyzerOutputSchema>;
  *  - css       → expressed via pseudo-classes/attributes (:hover, [aria-pressed], :disabled)
  *  - functional → expressed via conditional JSX ({loading && <Spinner />})
  *
- * CoverageCheck uses different regex patterns per kind.
+ * StateCoverageGuard uses different regex patterns per kind.
  */
 export const StateCoveredSchema = z.object({
   name: z.string(),

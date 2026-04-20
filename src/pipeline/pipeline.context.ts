@@ -42,7 +42,7 @@ export class PipelineContext {
   /**
    * Returns all required states: those specified in the input +
    * those identified as missing by the Analyzer.
-   * Used by CoverageCheck and ValidatorAgent.
+   * Used by StateCoverageGuard and ValidatorAgent.
    */
   get requiredStates(): string[] {
     const specified = this.parserOutput?.extraction.specified_states ?? [];

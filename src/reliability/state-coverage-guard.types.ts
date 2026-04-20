@@ -1,4 +1,4 @@
-export interface CoverageResult {
+export interface StateCoverageResult {
   /** "covered/required", e.g. "7/7" */
   ratio: string;
   covered: number;

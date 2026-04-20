@@ -15,7 +15,7 @@ import { BaseAgent } from './base.agent';
  * Generates a React functional component that:
  *   - Uses only DS tokens (var(--...)) and components (from @unlimit/ui)
  *   - Covers all states from specified_states + missing_states
- *   - Tags each state with kind: 'css' | 'functional' for CoverageCheck
+ *   - Tags each state with kind: 'css' | 'functional' for StateCoverageGuard
  *
  * DS context injected: component specs, CSS variable values, conventions.
  * maxTokens = 16000 — complex multi-step components (KYC wizard, etc.) can be long.

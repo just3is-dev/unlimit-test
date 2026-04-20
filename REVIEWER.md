@@ -8,7 +8,7 @@ the most interesting decisions.
 ## 1. Orchestration — `src/pipeline/pipeline.service.ts`
 
 The single place where all four stages are wired together. Shows the generator
-retry loop: after `GeneratorAgent` runs, `HallucinationGuard` and `CoverageCheck`
+retry loop: after `GeneratorAgent` runs, `HallucinationGuard` and `StateCoverageGuard`
 inspect the output and, if either fails, pass targeted feedback back into a second
 `GeneratorAgent` call. Everything else in the codebase supports this flow.
 
@@ -25,11 +25,11 @@ The core reliability primitive. On Zod schema failure, it extracts per-field err
 messages and re-prompts the model with specific correction instructions. Used by
 every agent via `BaseAgent.generate()`.
 
-## 4. Deterministic guards — `src/reliability/hallucination-guard.ts` and `coverage-check.ts`
+## 4. Deterministic guards — `src/reliability/hallucination-guard.ts` and `state-coverage-guard.ts`
 
 Two checks that run without any LLM call. `HallucinationGuard` validates CSS
 variables and component imports against the design system allow-lists.
-`CoverageCheck` verifies that every required state is detectable in the generated
+`StateCoverageGuard` verifies that every required state is detectable in the generated
 code — CSS states via pseudo-class patterns, functional states via JSX conditional
 patterns. Both produce a `feedbackPrompt` consumed by the retry loop in step 1.
 

@@ -16,7 +16,7 @@ export type { AttemptFn, SchemaRetryOptions } from './schema-retry.types';
  *  5. Throw if all attempts are exhausted.
  *
  * This is the primary LLM reliability mechanism (see ADR-002).
- * HallucinationGuard and CoverageCheck add separate re-prompt loops on top.
+ * HallucinationGuard and StateCoverageGuard add separate re-prompt loops on top.
  */
 @Injectable()
 export class SchemaRetry {

@@ -32,7 +32,7 @@ mechanical and fully detectable with deterministic code. Using an LLM to catch t
 would be slower, costlier, and harder to test. Each deterministic check is a plain
 class with unit tests; the LLM judge adds a quality score on top without replacing them.
 
-On regex vs AST for `CoverageCheck`: AST analysis (Babel + custom visitor) would be
+On regex vs AST for `StateCoverageGuard`: AST analysis (Babel + custom visitor) would be
 more precise but adds a heavy dependency for marginal gain. Regex patterns scoped to
 JSX operators (`&&`, `?`) are sufficient for the generated code patterns in this project.
 
@@ -41,5 +41,5 @@ JSX operators (`&&`, `?`) are sufficient for the generated code patterns in this
 - Schema validation, DS compliance, and state coverage are verified with no extra LLM
   calls — low latency, low cost, fully testable.
 - `LLMJudge` is additive: disabling it doesn't affect the pipeline output.
-- Regex-based `CoverageCheck` can produce false negatives for CSS states implemented
+- Regex-based `StateCoverageGuard` can produce false negatives for CSS states implemented
   via non-standard syntax (e.g. CSS-in-JS libraries).

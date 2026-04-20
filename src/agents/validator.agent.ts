@@ -3,8 +3,8 @@ import { Injectable, Logger } from '@nestjs/common';
 import { DesignSystemService } from '@/design-system/design-system.service';
 import { PipelineContext } from '@/pipeline/pipeline.context';
 import { GeneratorOutput, ValidatorOutput } from '@/pipeline/schemas';
-import { CoverageCheck } from '@/reliability/coverage-check';
 import { HallucinationGuard } from '@/reliability/hallucination-guard';
+import { StateCoverageGuard } from '@/reliability/state-coverage-guard';
 
 import { COMPONENT_A11Y_RULES } from './validator.rules';
 
@@ -12,8 +12,8 @@ import { COMPONENT_A11Y_RULES } from './validator.rules';
  * ValidatorAgent — Stage 4 (deterministic).
  *
  * Runs three independent checks on the generated code:
- *   1. HallucinationGuard — CSS vars and components against DS allow-list
- *   2. CoverageCheck     — all required states present in code
+ *   1. HallucinationGuard   — CSS vars and components against DS allow-list
+ *   2. StateCoverageGuard  — all required states present in code
  *   3. A11y rules        — component-specific checks from components.json
  *
  * Does NOT call an LLM. LLMJudge is a separate opt-in step.
@@ -26,7 +26,7 @@ export class ValidatorAgent {
   constructor(
     private readonly ds: DesignSystemService,
     private readonly hallucinationGuard: HallucinationGuard,
-    private readonly coverageCheck: CoverageCheck,
+    private readonly stateCoverageGuard: StateCoverageGuard,
   ) {}
 
   async run(input: GeneratorOutput, context: PipelineContext): Promise<ValidatorOutput> {
@@ -47,8 +47,8 @@ export class ValidatorAgent {
       this.logger.warn(`HallucinationGuard: ${hallucinations.length} violation(s)`);
     }
 
-    // ── 2. CoverageCheck ──────────────────────────────────────────────────
-    const covResult = this.coverageCheck.check(context.requiredStates, states_covered, files);
+    // ── 2. StateCoverageGuard ─────────────────────────────────────────────
+    const covResult = this.stateCoverageGuard.check(context.requiredStates, states_covered, files);
 
     if (!covResult.passed) {
       issues.push(...covResult.missingInCode.map((s) => `State not implemented in code: "${s}"`));

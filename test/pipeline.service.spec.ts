@@ -75,7 +75,7 @@ describe('PipelineService (stub agents)', () => {
     const mockHallucinationGuard = {
       check: jest.fn().mockReturnValue({ passed: true, feedbackPrompt: '' }),
     };
-    const mockCoverageCheck = {
+    const mockStateCoverageGuard = {
       check: jest.fn().mockReturnValue({ passed: true, feedbackPrompt: '' }),
     };
 
@@ -87,7 +87,7 @@ describe('PipelineService (stub agents)', () => {
       mockValidator as any,
       mockJudge as any,
       mockHallucinationGuard as any,
-      mockCoverageCheck as any,
+      mockStateCoverageGuard as any,
     );
   });
 

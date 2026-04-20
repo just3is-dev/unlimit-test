@@ -1,11 +1,11 @@
 import { StateCovered } from '@/pipeline/schemas';
-import { CoverageCheck } from '@/reliability/coverage-check';
+import { StateCoverageGuard } from '@/reliability/state-coverage-guard';
 
-describe('CoverageCheck', () => {
-  let check: CoverageCheck;
+describe('StateCoverageGuard', () => {
+  let guard: StateCoverageGuard;
 
   beforeEach(() => {
-    check = new CoverageCheck();
+    guard = new StateCoverageGuard();
   });
 
   const file = (content: string) => [{ filename: 'Component.tsx', content }];
@@ -26,7 +26,7 @@ describe('CoverageCheck', () => {
       {isLoading && <Spinner />}
       {error && <p role="alert">{error}</p>}
     `;
-    const result = check.check(required, covered, file(code));
+    const result = guard.check(required, covered, file(code));
     expect(result.passed).toBe(true);
     expect(result.missingInCode).toHaveLength(0);
     expect(result.ratio).toBe('4/4');
@@ -38,7 +38,7 @@ describe('CoverageCheck', () => {
     const required = ['default', 'hover'];
     const covered: StateCovered[] = [{ name: 'hover', kind: 'css' }];
     const code = `.card:hover {}`;
-    const result = check.check(required, covered, file(code));
+    const result = guard.check(required, covered, file(code));
     expect(result.passed).toBe(true);
     expect(result.ratio).toBe('1/1'); // default excluded from count
   });
@@ -46,7 +46,7 @@ describe('CoverageCheck', () => {
   // ---- CSS states ----------------------------------------------------------
 
   it('detects hover via :hover pseudo-class', () => {
-    const result = check.check(
+    const result = guard.check(
       ['hover'],
       [{ name: 'hover', kind: 'css' }],
       file('.card:hover { background: red; }'),
@@ -55,7 +55,7 @@ describe('CoverageCheck', () => {
   });
 
   it('detects disabled via aria-disabled attribute', () => {
-    const result = check.check(
+    const result = guard.check(
       ['disabled'],
       [{ name: 'disabled', kind: 'css' }],
       file('<Card aria-disabled={isDisabled} />'),
@@ -64,7 +64,7 @@ describe('CoverageCheck', () => {
   });
 
   it('detects selected via aria-pressed', () => {
-    const result = check.check(
+    const result = guard.check(
       ['selected'],
       [{ name: 'selected', kind: 'css' }],
       file('<Card aria-pressed={isSelected} />'),
@@ -73,7 +73,7 @@ describe('CoverageCheck', () => {
   });
 
   it('flags CSS state when pattern is absent from code', () => {
-    const result = check.check(
+    const result = guard.check(
       ['hover'],
       [{ name: 'hover', kind: 'css' }],
       file('<div className="card">no hover here</div>'),
@@ -85,7 +85,7 @@ describe('CoverageCheck', () => {
   // ---- Functional states ---------------------------------------------------
 
   it('detects loading via isLoading conditional', () => {
-    const result = check.check(
+    const result = guard.check(
       ['loading'],
       [{ name: 'loading', kind: 'functional' }],
       file('{isLoading && <Spinner label="Loading..." />}'),
@@ -94,7 +94,7 @@ describe('CoverageCheck', () => {
   });
 
   it('detects error via role="alert"', () => {
-    const result = check.check(
+    const result = guard.check(
       ['error'],
       [{ name: 'error', kind: 'functional' }],
       file('<p role="alert">{errorMessage}</p>'),
@@ -103,7 +103,7 @@ describe('CoverageCheck', () => {
   });
 
   it('detects deleting via isDeleting', () => {
-    const result = check.check(
+    const result = guard.check(
       ['deleting'],
       [{ name: 'deleting', kind: 'functional' }],
       file('{isDeleting ? <Spinner /> : <IconButton icon={<Icon name="trash" />} />}'),
@@ -112,7 +112,7 @@ describe('CoverageCheck', () => {
   });
 
   it('flags functional state when pattern is absent', () => {
-    const result = check.check(
+    const result = guard.check(
       ['loading'],
       [{ name: 'loading', kind: 'functional' }],
       file('<div>no loading state here</div>'),
@@ -124,7 +124,7 @@ describe('CoverageCheck', () => {
   // ---- Not claimed ---------------------------------------------------------
 
   it('flags state not present in states_covered at all', () => {
-    const result = check.check(
+    const result = guard.check(
       ['error'],
       [], // generator did not claim error
       file('{error && <p>{error}</p>}'),
@@ -143,13 +143,13 @@ describe('CoverageCheck', () => {
       // error not covered
     ];
     const code = `.card:hover {} {isLoading && <Spinner />}`;
-    const result = check.check(required, covered, file(code));
+    const result = guard.check(required, covered, file(code));
     expect(result.ratio).toBe('2/3');
     expect(result.passed).toBe(false);
   });
 
   it('feedback mentions missing state with implementation hint', () => {
-    const result = check.check(
+    const result = guard.check(
       ['loading'],
       [{ name: 'loading', kind: 'functional' }],
       file('<div>no loading</div>'),
@@ -159,11 +159,7 @@ describe('CoverageCheck', () => {
   });
 
   it('returns empty feedbackPrompt when passed', () => {
-    const result = check.check(
-      ['hover'],
-      [{ name: 'hover', kind: 'css' }],
-      file('.card:hover {}'),
-    );
+    const result = guard.check(['hover'], [{ name: 'hover', kind: 'css' }], file('.card:hover {}'));
     expect(result.feedbackPrompt).toBe('');
   });
 });

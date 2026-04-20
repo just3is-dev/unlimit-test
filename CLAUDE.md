@@ -50,7 +50,7 @@ retry-with-feedback via `SchemaRetry`.
 | `src/pipeline/` | `PipelineService` (orchestrator), `PipelineContext` (shared state), `schemas.ts` (all Zod schemas + `FinalOutputSchema`) |
 | `src/agents/` | `BaseAgent`, `ParserAgent`, `AnalyzerAgent`, `GeneratorAgent`, `ValidatorAgent` |
 | `src/llm/` | `LLMProvider` interface, `AnthropicProvider` (Vercel AI SDK), `PromptLoaderService` |
-| `src/reliability/` | `SchemaRetry`, `HallucinationGuard`, `CoverageCheck`, `LLMJudge` (opt-in via `USE_LLM_JUDGE=true`) |
+| `src/reliability/` | `SchemaRetry`, `HallucinationGuard`, `StateCoverageGuard`, `LLMJudge` (opt-in via `USE_LLM_JUDGE=true`) |
 | `prompts/` | Prompt files (`01-parser.md` … `04-validator-judge.md`) — loaded at runtime, not inlined |
 | `design-system/` | `tokens.json` + `components.json` — single source of truth for the DS allow-lists |
 | `examples/` | Three worked examples (`01-payment-card`, `02-transaction-table`, `03-kyc-wizard`) each with `input.txt`, `output.json`, `Component.tsx` |
@@ -61,7 +61,7 @@ retry-with-feedback via `SchemaRetry`.
 
 - **Token CSS variables**: `--{category}-{key}` e.g. `--color-brand-primary` (see `tokens.json` `convention` field).
 - **Components import**: `import { Button } from '@unlimit/ui'` (see `components.json` `import-base`).
-- **States have two kinds**: `css` (hover, focus-visible, selected, disabled — expressed as pseudo-classes/attributes) and `functional` (loading, error, deleting — expressed as conditional JSX). `CoverageCheck` uses different regex patterns per kind.
+- **States have two kinds**: `css` (hover, focus-visible, selected, disabled — expressed as pseudo-classes/attributes) and `functional` (loading, error, deleting — expressed as conditional JSX). `StateCoverageGuard` uses different regex patterns per kind.
 - **Prompts are files**: `PromptLoaderService` reads `prompts/*.md` and injects `{{variable}}` placeholders at call time. Never inline prompts.
 - **Models per stage** (cost-aware): Parser → `MODEL_PARSER` (Haiku), Analyzer/Generator → `MODEL_ANALYZER`/`MODEL_GENERATOR` (Sonnet), Judge → `MODEL_JUDGE` (Haiku). All overridable via ENV.
 
@@ -71,5 +71,5 @@ Four independent mechanisms run after `GeneratorAgent`:
 
 1. **`SchemaRetry`** — wraps every LLM call; on Zod failure, re-prompts with the specific validation error.
 2. **`HallucinationGuard`** — regex-extracts `var(--)` and `@unlimit/ui` imports from generated code; checks against `DesignSystemService` allow-lists.
-3. **`CoverageCheck`** — verifies that every state in `gap_analysis.missing_states + extraction.specified_states` appears in the generated code (css states via pseudo-class patterns, functional states via conditional-render patterns).
+3. **`StateCoverageGuard`** — verifies that every state in `gap_analysis.missing_states + extraction.specified_states` appears in the generated code (css states via pseudo-class patterns, functional states via conditional-render patterns).
 4. **`LLMJudge`** — opt-in 5th LLM call (`USE_LLM_JUDGE=true`); returns 0-100 a11y score with Zod-validated structured output.

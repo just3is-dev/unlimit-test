@@ -5,9 +5,9 @@ import { GeneratorAgent } from '@/agents/generator.agent';
 import { ParserAgent } from '@/agents/parser.agent';
 import { ValidatorAgent } from '@/agents/validator.agent';
 import { DesignSystemService } from '@/design-system/design-system.service';
-import { CoverageCheck } from '@/reliability/coverage-check';
 import { HallucinationGuard } from '@/reliability/hallucination-guard';
 import { LLMJudge } from '@/reliability/llm-judge';
+import { StateCoverageGuard } from '@/reliability/state-coverage-guard';
 
 import { PipelineContext } from './pipeline.context';
 import { FinalOutput } from './schemas';
@@ -27,7 +27,7 @@ import { FinalOutput } from './schemas';
 export class PipelineService {
   private readonly logger = new Logger(PipelineService.name);
 
-  /** Max extra Generator attempts after HallucinationGuard / CoverageCheck failure */
+  /** Max extra Generator attempts after HallucinationGuard / StateCoverageGuard failure */
   private static readonly MAX_GENERATOR_RETRIES = 1;
 
   constructor(
@@ -38,7 +38,7 @@ export class PipelineService {
     private readonly validator: ValidatorAgent,
     private readonly judge: LLMJudge,
     private readonly hallucinationGuard: HallucinationGuard,
-    private readonly coverageCheck: CoverageCheck,
+    private readonly stateCoverageGuard: StateCoverageGuard,
   ) {}
 
   async run(description: string): Promise<FinalOutput> {
@@ -60,7 +60,11 @@ export class PipelineService {
     for (let attempt = 0; attempt < PipelineService.MAX_GENERATOR_RETRIES; attempt++) {
       const { files, states_covered } = context.generatorOutput.generated_code;
       const halResult = this.hallucinationGuard.check(files);
-      const covResult = this.coverageCheck.check(context.requiredStates, states_covered, files);
+      const covResult = this.stateCoverageGuard.check(
+        context.requiredStates,
+        states_covered,
+        files,
+      );
 
       if (halResult.passed && covResult.passed) break;
 
@@ -70,7 +74,7 @@ export class PipelineService {
 
       this.logger.warn(
         `Stage 3 retry ${attempt + 1}/${PipelineService.MAX_GENERATOR_RETRIES} — ` +
-          `hallucinations=${!halResult.passed}, coverage=${!covResult.passed}`,
+          `hallucinations=${!halResult.passed}, stateCoverage=${!covResult.passed}`,
       );
 
       context.generatorOutput = await this.generator.run(context.analyzerOutput, context, feedback);
