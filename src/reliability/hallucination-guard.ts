@@ -40,11 +40,11 @@ export class HallucinationGuard {
 
   // Matches: import { Button, Card } from '@unlimit/ui'
   // Captures the brace content: "Button, Card"
-  private static readonly IMPORT_RE =
-    /import\s*\{([^}]+)\}\s*from\s*['"]@unlimit\/ui['"]/g;
+  private static readonly IMPORT_RE = /import\s*\{([^}]+)\}\s*from\s*['"]@unlimit\/ui['"]/g;
 
-  // Matches: name="visa" or name={'visa'} on an Icon component
-  // We look for name= near an <Icon tag (within 200 chars)
+  // Matches static icon name values: name="visa" or name={'visa'}
+  // Dynamic expressions like name={brand} are intentionally skipped —
+  // their values are unknown at static analysis time and cannot be validated.
   private static readonly ICON_NAME_RE = /<Icon[^>]*\bname=["'{`]([^"'{`\s]+)["'{`]/g;
 
   constructor(private readonly ds: DesignSystemService) {}
@@ -78,7 +78,9 @@ export class HallucinationGuard {
       unknownCssVars,
       unknownComponents,
       unknownIconNames,
-      feedbackPrompt: passed ? '' : this.buildFeedback(unknownCssVars, unknownComponents, unknownIconNames),
+      feedbackPrompt: passed
+        ? ''
+        : this.buildFeedback(unknownCssVars, unknownComponents, unknownIconNames),
     };
   }
 
@@ -96,7 +98,12 @@ export class HallucinationGuard {
     for (const match of code.matchAll(HallucinationGuard.IMPORT_RE)) {
       const names = match[1]
         .split(',')
-        .map((n) => n.trim().split(/\s+as\s+/)[0].trim()) // handle "Button as Btn"
+        .map((n) =>
+          n
+            .trim()
+            .split(/\s+as\s+/)[0]
+            .trim(),
+        ) // handle "Button as Btn"
         .filter(Boolean);
       imported.push(...names);
     }
@@ -139,7 +146,7 @@ export class HallucinationGuard {
     if (unknownComponents.length) {
       lines.push(`Invalid @unlimit/ui imports (components do not exist):`);
       unknownComponents.forEach((c) => lines.push(`  - ${c}`));
-      lines.push("  → Import only components listed in the design system context.");
+      lines.push('  → Import only components listed in the design system context.');
       lines.push('');
     }
 
