@@ -72,8 +72,8 @@ export class PipelineContext {
       generated_code: {
         framework: generated_code.framework,
         files: generated_code.files,
-        // Flatten internal {name, kind} → string[] for the public schema
-        states_covered: generated_code.states_covered.map((s) => s.name),
+        // Flatten internal {name, kind} → string[], deduplicate (model sometimes repeats entries)
+        states_covered: [...new Set(generated_code.states_covered.map((s) => s.name))],
         tokens_used: generated_code.tokens_used,
       },
       validation,
