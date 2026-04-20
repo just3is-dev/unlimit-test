@@ -1,11 +1,10 @@
 import { readFileSync } from 'fs';
 import { join } from 'path';
-
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 
 import {
-  ComponentSpec,
   ComponentsJson,
+  ComponentSpec,
   DesignSystemContext,
   TokensJson,
 } from './design-system.types';
@@ -86,13 +85,11 @@ export class DesignSystemService implements OnModuleInit {
     const componentsJson = this.loadJson<ComponentsJson>('components.json');
 
     const { cssVariables, cssVariableValues } = this.flattenTokens(tokens);
-    const componentSpecs: Record<string, ComponentSpec> =
-      componentsJson.components;
+    const componentSpecs: Record<string, ComponentSpec> = componentsJson.components;
     const componentNames = Object.keys(componentSpecs);
 
     // Extract Icon.name allowed values for targeted hallucination checks
-    const iconNames: string[] =
-      componentSpecs['Icon']?.props?.['name']?.values ?? [];
+    const iconNames: string[] = componentSpecs['Icon']?.props?.['name']?.values ?? [];
 
     return {
       cssVariables,
@@ -123,9 +120,7 @@ export class DesignSystemService implements OnModuleInit {
       if (SKIP_KEYS.has(category)) continue;
       if (typeof value !== 'object' || value === null) continue;
 
-      for (const [key, tokenValue] of Object.entries(
-        value as Record<string, string>,
-      )) {
+      for (const [key, tokenValue] of Object.entries(value as Record<string, string>)) {
         const cssVar = `--${category}-${key}`;
         cssVariables.push(cssVar);
         cssVariableValues[cssVar] = tokenValue;
@@ -140,9 +135,7 @@ export class DesignSystemService implements OnModuleInit {
     try {
       return JSON.parse(readFileSync(filePath, 'utf-8')) as T;
     } catch (err) {
-      throw new Error(
-        `DesignSystemService: failed to load ${filePath}: ${String(err)}`,
-      );
+      throw new Error(`DesignSystemService: failed to load ${filePath}: ${String(err)}`);
     }
   }
 }

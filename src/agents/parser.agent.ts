@@ -1,7 +1,7 @@
 import { Inject, Injectable } from '@nestjs/common';
 
-import { PromptLoaderService } from '@/llm/prompt-loader.service';
 import { LLM_PROVIDER, LLMProvider } from '@/llm/llm.provider';
+import { PromptLoaderService } from '@/llm/prompt-loader.service';
 import { PipelineContext } from '@/pipeline/pipeline.context';
 import { ParserOutput, ParserOutputSchema } from '@/pipeline/schemas';
 import { SchemaRetry } from '@/reliability/schema-retry';
@@ -33,8 +33,8 @@ export class ParserAgent extends BaseAgent<string, ParserOutput> {
   async run(description: string, _context: PipelineContext): Promise<ParserOutput> {
     return this.generate({
       promptName: '01-parser',
-      systemVars: {},               // 01-parser.md has no injected DS variables
-      userPrompt: description,      // clean separation: prompt file = system, input = user
+      systemVars: {}, // 01-parser.md has no injected DS variables
+      userPrompt: description, // clean separation: prompt file = system, input = user
       schema: ParserOutputSchema,
       model: process.env.MODEL_PARSER ?? 'claude-haiku-4-5',
     });

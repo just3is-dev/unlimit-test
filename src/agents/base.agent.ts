@@ -1,8 +1,8 @@
-import { Inject, Logger } from '@nestjs/common';
 import { z } from 'zod';
+import { Inject, Logger } from '@nestjs/common';
 
-import { PromptLoaderService } from '@/llm/prompt-loader.service';
 import { LLM_PROVIDER, LLMProvider } from '@/llm/llm.provider';
+import { PromptLoaderService } from '@/llm/prompt-loader.service';
 import { PipelineContext } from '@/pipeline/pipeline.context';
 import { SchemaRetry } from '@/reliability/schema-retry';
 
@@ -65,17 +65,12 @@ export abstract class BaseAgent<TInput, TOutput> {
     // System prompt: role + instructions + DS context + few-shot examples
     const system = this.prompts.load(promptName, systemVars);
 
-    return this.schemaRetry.run(
-      async (feedbackPrompt?: string) => {
-        // On retry: append schema-error feedback so the model self-corrects.
-        // Original input stays visible so the model has full context.
-        const prompt = feedbackPrompt
-          ? `${userPrompt}\n\n---\n${feedbackPrompt}`
-          : userPrompt;
+    return this.schemaRetry.run(async (feedbackPrompt?: string) => {
+      // On retry: append schema-error feedback so the model self-corrects.
+      // Original input stays visible so the model has full context.
+      const prompt = feedbackPrompt ? `${userPrompt}\n\n---\n${feedbackPrompt}` : userPrompt;
 
-        return this.llm.generateObject({ model, system, prompt, schema, maxTokens });
-      },
-      schema,
-    );
+      return this.llm.generateObject({ model, system, prompt, schema, maxTokens });
+    }, schema);
   }
 }

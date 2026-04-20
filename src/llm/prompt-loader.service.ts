@@ -1,6 +1,5 @@
 import { readFileSync } from 'fs';
 import { join } from 'path';
-
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 
 /**
@@ -62,9 +61,7 @@ export class PromptLoaderService implements OnModuleInit {
     // Warn if any unreplaced placeholders remain
     const remaining = template.match(/\{\{[^}]+\}\}/g);
     if (remaining) {
-      this.logger.warn(
-        `Prompt "${name}" has unreplaced placeholders: ${remaining.join(', ')}`,
-      );
+      this.logger.warn(`Prompt "${name}" has unreplaced placeholders: ${remaining.join(', ')}`);
     }
 
     return template;

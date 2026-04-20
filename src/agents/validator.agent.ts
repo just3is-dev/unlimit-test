@@ -1,8 +1,8 @@
 import { Injectable } from '@nestjs/common';
 
 import { DesignSystemService } from '@/design-system/design-system.service';
-import { GeneratorOutput, ValidatorOutput } from '@/pipeline/schemas';
 import { PipelineContext } from '@/pipeline/pipeline.context';
+import { GeneratorOutput, ValidatorOutput } from '@/pipeline/schemas';
 
 /**
  * ValidatorAgent — Stage 4.
@@ -15,7 +15,6 @@ import { PipelineContext } from '@/pipeline/pipeline.context';
 export class ValidatorAgent {
   constructor(private readonly ds: DesignSystemService) {}
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   async run(_input: GeneratorOutput, _context: PipelineContext): Promise<ValidatorOutput> {
     // Stub: returns a passing validation result.
     // Real implementation in step 13 wires HallucinationGuard + CoverageCheck.

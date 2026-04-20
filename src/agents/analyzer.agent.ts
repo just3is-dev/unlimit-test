@@ -1,8 +1,8 @@
 import { Inject, Injectable } from '@nestjs/common';
 
 import { DesignSystemService } from '@/design-system/design-system.service';
-import { PromptLoaderService } from '@/llm/prompt-loader.service';
 import { LLM_PROVIDER, LLMProvider } from '@/llm/llm.provider';
+import { PromptLoaderService } from '@/llm/prompt-loader.service';
 import { PipelineContext } from '@/pipeline/pipeline.context';
 import { AnalyzerOutput, AnalyzerOutputSchema, ParserOutput } from '@/pipeline/schemas';
 import { SchemaRetry } from '@/reliability/schema-retry';

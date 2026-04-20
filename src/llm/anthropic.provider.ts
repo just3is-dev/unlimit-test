@@ -1,7 +1,7 @@
-import { createAnthropic } from '@ai-sdk/anthropic';
-import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { generateObject } from 'ai';
 import { z } from 'zod';
+import { createAnthropic } from '@ai-sdk/anthropic';
+import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 
 import { GenerateObjectOptions, LLMProvider } from './llm.provider';
 

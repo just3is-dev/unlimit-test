@@ -1,5 +1,5 @@
-import { Injectable, Logger } from '@nestjs/common';
 import { z } from 'zod';
+import { Injectable, Logger } from '@nestjs/common';
 
 /**
  * Callback type for a single LLM attempt.
