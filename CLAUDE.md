@@ -38,6 +38,8 @@ POST /pipeline          src/cli.ts
       (Haiku)   (Sonnet)  (Sonnet)  (determ.)  sub-system
 ```
 
+Opt-in 5th stage: `QualityEvaluator` (Haiku) — enabled via `USE_QUALITY_EVALUATOR=true`.
+
 Each agent lives in `src/agents/` and extends `BaseAgent<TInput, TOutput>` — a wrapper
 that handles prompt loading, `generateObject` (Vercel AI SDK + Zod schema), and
 retry-with-feedback via `SchemaRetry`.

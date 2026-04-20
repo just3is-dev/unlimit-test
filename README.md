@@ -74,18 +74,18 @@ Input (text description)
 └──────┬──────┘
        │
        ▼
-┌─────────────┐    Assembles: final validation report
-│  Validator  │    from guard results already in context
-│(deterministic)
-└──────┬──────┘
-       │
-       ▼
-┌──────────────┐   Scores: a11y quality 0–100
-│QualityEval.  │   opt-in via USE_QUALITY_EVALUATOR=true
-│(Haiku, opt-in)
-└──────┬───────┘
-       │
-       ▼
+┌───────────────┐  Assembles: final validation report
+│   Validator   │  from guard results already in context
+│(deterministic)│
+└───────┬───────┘
+        │
+        ▼
+┌───────────────┐  Scores: a11y quality 0–100
+│ QualityEval.  │  opt-in via USE_QUALITY_EVALUATOR=true
+│ (Haiku, opt-in)
+└───────┬───────┘
+        │
+        ▼
   FinalOutput (JSON)
 ```
 

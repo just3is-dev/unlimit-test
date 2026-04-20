@@ -14,7 +14,8 @@ import { PipelineContext } from './pipeline.context';
 import { FinalOutput } from './pipeline.schemas';
 
 /**
- * PipelineService — the single orchestrator for the 4-stage pipeline.
+ * PipelineService — the single orchestrator for the 4-stage pipeline
+ * plus an opt-in QualityEvaluator stage.
  *
  * Two interfaces (HTTP, CLI) are thin facades over this service.
  *
