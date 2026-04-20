@@ -39,7 +39,7 @@ All model defaults are overridable via ENV (`MODEL_PARSER`, `MODEL_ANALYZER`, et
 
 ## Consequences
 
-- Haiku is ~20× cheaper than Sonnet — significant cost reduction for Parser and Judge.
+- Haiku is ~20× cheaper than Sonnet — significant cost reduction for Parser and QualityEvaluator.
 - Each stage can be upgraded independently by changing one ENV variable.
 - Haiku may occasionally require more `SchemaRetry` attempts on complex extractions,
   though this was not observed in the three worked examples.

@@ -11,26 +11,26 @@ without making quality checks expensive or non-deterministic themselves.
 
 ## Options Considered
 
-**LLM judge for all validation**  
+**LLM-based quality evaluator for all validation**  
 A single LLM call scores every aspect of the output. Simple to implement, flexible.
 But it adds latency and cost to every request, is non-deterministic, and is hard to
 unit-test.
 
-**Deterministic checks first, LLM judge opt-in**  
+**Deterministic checks first, LLM-based quality evaluator opt-in**  
 Layer mechanisms from cheapest to most expensive: schema retry → regex guards →
-optional LLM judge. Most failures are caught without any extra LLM call.
+optional quality evaluator. Most failures are caught without any extra LLM call.
 
 ## Decision
 
 Deterministic-first: schema validation and regex-based checks run on every request.
-LLM judge is opt-in via `USE_QUALITY_EVALUATOR=true`.
+`QualityEvaluator` is opt-in via `USE_QUALITY_EVALUATOR=true`.
 
 ## Rationale
 
 The common failure modes — schema mismatch, wrong DS tokens, uncovered states — are
 mechanical and fully detectable with deterministic code. Using an LLM to catch them
 would be slower, costlier, and harder to test. Each deterministic check is a plain
-class with unit tests; the LLM judge adds a quality score on top without replacing them.
+class with unit tests; the QualityEvaluator adds a quality score on top without replacing them.
 
 On regex vs AST for `StateCoverageGuard`: AST analysis (Babel + custom visitor) would be
 more precise but adds a heavy dependency for marginal gain. Regex patterns scoped to
