@@ -54,7 +54,7 @@ export type AnalyzerOutput = z.infer<typeof AnalyzerOutputSchema>;
 // ---------------------------------------------------------------------------
 
 /**
- * States have two natures (see paper-prototype.md §Выводы #3):
+ * States have two natures:
  *  - css       → expressed via pseudo-classes/attributes (:hover, [aria-pressed], :disabled)
  *  - functional → expressed via conditional JSX ({loading && <Spinner />})
  *

@@ -24,7 +24,7 @@ export interface SchemaRetryOptions {
  *  4. Call `fn(feedbackPrompt)` and repeat up to `maxAttempts` times.
  *  5. Throw if all attempts are exhausted.
  *
- * This is the primary LLM reliability mechanism (see §4 of plan.md, ADR-003).
+ * This is the primary LLM reliability mechanism (see ADR-002).
  * HallucinationGuard and CoverageCheck add separate re-prompt loops on top.
  */
 @Injectable()

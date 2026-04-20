@@ -5,14 +5,11 @@ import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 
 /**
- * HTTP entrypoint — one of three interfaces over PipelineService.
+ * HTTP entrypoint — one of two interfaces over PipelineService.
  *
  * Interfaces:
  *   POST /pipeline  →  this file (HTTP)
- *   src/cli.ts      →  CLI (step 16)
- *   src/mcp.ts      →  MCP server (step 17)
- *
- * See ADR-004 for why we expose three interfaces over one service.
+ *   src/cli.ts      →  CLI
  */
 async function bootstrap() {
   // Load .env before anything else

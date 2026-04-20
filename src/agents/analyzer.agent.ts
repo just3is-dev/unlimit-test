@@ -19,7 +19,7 @@ import { BaseAgent } from './base.agent';
  *   - recommendations (DS-aware: which components and props to use)
  *
  * DS context is injected into the system prompt so the model only
- * recommends components and tokens that actually exist. See paper-prototype.md §1.
+ * recommends components and tokens that actually exist.
  *
  * Model: MODEL_ANALYZER (Sonnet) — reasoning over DS constraints.
  */

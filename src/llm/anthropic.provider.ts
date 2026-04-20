@@ -15,11 +15,9 @@ import { GenerateObjectOptions, LLMProvider } from './llm.provider';
  *  - Provider abstraction (swap to OpenAI: replace this class only)
  *
  * What we keep explicit:
- *  - Retry-with-feedback on Zod schema failure (SchemaRetry, step 6)
- *  - Prompt loading and variable injection (PromptLoaderService, step 5)
- *  - Pipeline orchestration (PipelineService, step 7)
- *
- * See ADR-002 for full rationale.
+ *  - Retry-with-feedback on Zod schema failure (SchemaRetry)
+ *  - Prompt loading and variable injection (PromptLoaderService)
+ *  - Pipeline orchestration (PipelineService)
  */
 @Injectable()
 export class AnthropicProvider extends LLMProvider implements OnModuleInit {

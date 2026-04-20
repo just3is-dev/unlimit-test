@@ -6,7 +6,7 @@ import { AppModule } from './app.module';
 import { PipelineService } from './pipeline/pipeline.service';
 
 /**
- * CLI entrypoint — one of three interfaces over PipelineService.
+ * CLI entrypoint — one of two interfaces over PipelineService.
  *
  * Usage:
  *   npm run cli -- <path-to-input.txt>
@@ -14,8 +14,6 @@ import { PipelineService } from './pipeline/pipeline.service';
  *
  * Reads the description from a file, runs the pipeline, and prints
  * the FinalOutput JSON to stdout. Errors go to stderr with exit code 1.
- *
- * See ADR-004 for the three-interface, one-service rationale.
  */
 async function main() {
   // Load .env before NestJS boots so providers pick up env vars

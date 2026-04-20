@@ -12,7 +12,6 @@ import { FinalOutput } from './schemas';
  *
  * Validation is handled by NestJS ValidationPipe (registered in main.ts).
  * All business logic lives in PipelineService — this controller is intentionally thin.
- * See ADR-004 for the three-interface, one-service rationale.
  */
 @Controller('pipeline')
 export class PipelineController {

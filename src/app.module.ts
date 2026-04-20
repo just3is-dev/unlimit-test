@@ -8,9 +8,9 @@ import { PipelineModule } from '@/pipeline/pipeline.module';
  * Root application module.
  *
  * Feature modules:
- *   - DesignSystemModule   ✓ (step 2)
- *   - LlmModule            ✓ (step 4)
- *   - PipelineModule       ✓ (step 7)
+ *   - DesignSystemModule
+ *   - LlmModule
+ *   - PipelineModule
  */
 @Module({
   imports: [DesignSystemModule, LlmModule, PipelineModule],

@@ -25,7 +25,7 @@ function normalizeStateName(state: string): string {
  * CoverageCheck — verifies that every required state is expressed in the
  * generated code using the appropriate pattern for its kind.
  *
- * State kinds (from paper-prototype.md §Выводы #3):
+ * State kinds:
  *   css        → pseudo-classes / aria-attributes (:hover, aria-pressed, [disabled])
  *   functional → conditional JSX ({loading && <Spinner />})
  *

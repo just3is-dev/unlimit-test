@@ -23,7 +23,7 @@ import {
  *   e.g. color.brand-primary → --color-brand-primary
  *        font-family.sans    → --font-family-sans
  *
- * See ADR-006 for scope decisions and allow-list rationale.
+ * Allow-list is used by HallucinationGuard to catch non-existent tokens and components.
  */
 @Injectable()
 export class DesignSystemService implements OnModuleInit {
@@ -66,7 +66,7 @@ export class DesignSystemService implements OnModuleInit {
 
   /**
    * Returns the a11y rules relevant to the given component names.
-   * Used by the deterministic Validator (step 13).
+   * Used by ValidatorAgent.
    */
   getA11yRules(usedComponents: string[]): Record<string, string> {
     const result: Record<string, string> = {};

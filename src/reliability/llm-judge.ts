@@ -14,7 +14,7 @@ import { SchemaRetry } from '@/reliability/schema-retry';
  *
  * Intentionally separate from ValidatorAgent so the deterministic pipeline
  * can run fast without an extra LLM call in normal operation.
- * See ADR-003 for the deterministic-first rationale.
+ * See ADR-002 for the deterministic-first rationale.
  */
 @Injectable()
 export class LLMJudge {

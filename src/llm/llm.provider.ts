@@ -28,7 +28,6 @@ export interface GenerateObjectOptions<S extends z.ZodType> {
  *
  * The abstraction deliberately exposes only `generateObject` — the single
  * primitive used by every agent. This keeps the swap surface minimal.
- * See ADR-002 for rationale.
  */
 export abstract class LLMProvider {
   /**

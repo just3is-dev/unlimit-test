@@ -18,7 +18,7 @@ import { BaseAgent } from './base.agent';
  *   - extraction.constraints
  *
  * Model: MODEL_PARSER (Haiku) — extraction task, no deep reasoning needed.
- * See ADR-005 for mixed-model cost rationale.
+ * See ADR-003 for mixed-model cost rationale.
  */
 @Injectable()
 export class ParserAgent extends BaseAgent<string, ParserOutput> {

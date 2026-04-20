@@ -6,7 +6,7 @@ import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
  * PromptLoaderService — loads prompt files from `prompts/*.md` at startup,
  * caches them in memory, and injects `{{variable}}` placeholders at call time.
  *
- * Design rationale (see §5 of plan.md):
+ * Design rationale:
  *  - Prompts are engineering artifacts, not inline strings. Keeping them in
  *    dedicated .md files makes them diffable, reviewable, and editable without
  *    touching TypeScript.

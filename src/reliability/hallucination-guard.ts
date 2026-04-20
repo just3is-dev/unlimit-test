@@ -29,7 +29,7 @@ export interface HallucinationResult {
  * Returns a structured result. PipelineService / ValidatorAgent uses this to
  * populate hallucinations_caught and, if needed, re-prompt the Generator.
  *
- * See §4 of plan.md and ADR-003 for reliability strategy.
+ * See ADR-002 for reliability strategy.
  */
 @Injectable()
 export class HallucinationGuard {
