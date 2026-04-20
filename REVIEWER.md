@@ -21,7 +21,7 @@ loading, the `generateObject` call, and `SchemaRetry`. Concrete agents implement
 only `run()`. Note the comment on why `@Inject` is absent from the base class
 constructor — a non-obvious NestJS metadata collision.
 
-## 3. Structured output + retry — `src/reliability/schema-retry.ts`
+## 3. Structured output + retry — `src/llm/schema-retry.ts`
 
 The core reliability primitive. On Zod schema failure, it extracts per-field error
 messages and re-prompts the model with specific correction instructions. Used by

@@ -2,12 +2,12 @@ import { Inject, Injectable, Logger } from '@nestjs/common';
 
 import { LLM_PROVIDER, LLMProvider } from '@/llm/llm.provider';
 import { PromptLoaderService } from '@/llm/prompt-loader.service';
+import { SchemaRetry } from '@/llm/schema-retry';
 import {
   GeneratorOutput,
   QualityEvaluatorOutput,
   QualityEvaluatorOutputSchema,
 } from '@/pipeline/pipeline.schemas';
-import { SchemaRetry } from '@/reliability/schema-retry';
 
 /**
  * QualityEvaluator — opt-in Stage 5 (enabled via USE_QUALITY_EVALUATOR=true).

@@ -46,7 +46,7 @@ npm test              # run all unit tests
 npm run test:cov      # with coverage report
 ```
 
-53 unit tests cover the reliability sub-system: `SchemaRetry`, `HallucinationGuard`, `StateCoverageGuard`, `A11yGuard`, and `PipelineService` orchestration.
+53 unit tests cover `SchemaRetry`, `HallucinationGuard`, `StateCoverageGuard`, `A11yGuard`, and `PipelineService` orchestration.
 
 ---
 
@@ -113,7 +113,7 @@ flowchart TD
         http["HTTP API\nNestJS / Express\nPOST /pipeline"]
         svc["PipelineService\norchestrator"]
         agents["Agents\nParser · Analyzer · Generator · Validator"]
-        reliability["Reliability (deterministic)\nSchemaRetry · HallucinationGuard\nStateCoverageGuard · A11yGuard"]
+        reliability["Reliability (deterministic)\nHallucinationGuard · StateCoverageGuard · A11yGuard"]
         qe["QualityEvaluator\nopt-in · Haiku"]
         ds["DesignSystemService\ntokens.json · components.json"]
     end

@@ -47,15 +47,15 @@ retry-with-feedback via `SchemaRetry`.
 | Directory | Purpose |
 |---|---|
 | `src/design-system/` | `DesignSystemService` — loads `design-system/*.json` at startup, exposes CSS-variable and component allow-lists used by `HallucinationGuard` |
-| `src/pipeline/` | `PipelineService` (orchestrator), `PipelineContext` (shared state), `schemas.ts` (all Zod schemas + `FinalOutputSchema`) |
+| `src/pipeline/` | `PipelineService` (orchestrator), `PipelineContext` (shared state), `pipeline.schemas.ts` (all Zod schemas + `FinalOutputSchema`) |
 | `src/agents/` | `BaseAgent`, `ParserAgent`, `AnalyzerAgent`, `GeneratorAgent`, `ValidatorAgent` |
-| `src/llm/` | `LLMProvider` interface, `AnthropicProvider` (Vercel AI SDK), `PromptLoaderService` |
-| `src/reliability/` | `SchemaRetry`, `HallucinationGuard`, `StateCoverageGuard`, `QualityEvaluator` (opt-in via `USE_QUALITY_EVALUATOR=true`) |
+| `src/llm/` | `LLMProvider` interface, `AnthropicProvider` (Vercel AI SDK), `PromptLoaderService`, `SchemaRetry` (structured-output retry wrapper) |
+| `src/reliability/` | `HallucinationGuard`, `StateCoverageGuard`, `A11yGuard` — deterministic post-generation guards; `QualityEvaluator` (opt-in via `USE_QUALITY_EVALUATOR=true`) |
 | `prompts/` | Prompt files (`01-parser.md` … `04-quality-evaluator.md`) — loaded at runtime, not inlined |
 | `design-system/` | `tokens.json` + `components.json` — single source of truth for the DS allow-lists |
 | `examples/` | Three worked examples (`01-payment-card`, `02-transaction-table`, `03-kyc-wizard`) each with `input.txt`, `output.json`, `Component.tsx` |
 | `docs/adr/` | Three ADRs documenting key architectural decisions |
-| `test/` | Unit tests for the three reliability guards |
+| `test/` | Unit tests for `SchemaRetry`, the three guards, and `PipelineService` orchestration |
 
 ### Key conventions
 
@@ -65,11 +65,16 @@ retry-with-feedback via `SchemaRetry`.
 - **Prompts are files**: `PromptLoaderService` reads `prompts/*.md` and injects `{{variable}}` placeholders at call time. Never inline prompts.
 - **Models per stage** (cost-aware): Parser → `MODEL_PARSER` (Haiku), Analyzer/Generator → `MODEL_ANALYZER`/`MODEL_GENERATOR` (Sonnet), QualityEvaluator → `MODEL_QUALITY_EVALUATOR` (Haiku). All overridable via ENV.
 
-### Reliability sub-system (`src/reliability/`)
+### LLM call reliability (`src/llm/schema-retry.ts`)
 
-Four independent mechanisms run after `GeneratorAgent`:
+**`SchemaRetry`** wraps every `generateObject` call inside `BaseAgent.generate()`. On Zod schema failure it extracts per-field errors and re-prompts the model with specific correction instructions (up to `MAX_RETRIES` attempts). Transparent to the caller — agents always receive a validated result or an exception.
 
-1. **`SchemaRetry`** — wraps every LLM call; on Zod failure, re-prompts with the specific validation error.
-2. **`HallucinationGuard`** — regex-extracts `var(--)` and `@unlimit/ui` imports from generated code; checks against `DesignSystemService` allow-lists.
-3. **`StateCoverageGuard`** — verifies that every state in `gap_analysis.missing_states + extraction.specified_states` appears in the generated code (css states via pseudo-class patterns, functional states via conditional-render patterns).
-4. **`QualityEvaluator`** — opt-in 5th LLM call (`USE_QUALITY_EVALUATOR=true`); returns 0-100 a11y score with Zod-validated structured output.
+### Guard sub-system (`src/reliability/`)
+
+Three deterministic guards run in `PipelineService` after every `GeneratorAgent` call. All follow the same contract: `.check() → { passed, feedbackPrompt, ... }`. Results are saved to `PipelineContext`; on failure the feedback prompts are combined and fed into a Generator retry. `ValidatorAgent` reads results from context without re-running the checks.
+
+1. **`HallucinationGuard`** — regex-extracts `var(--)` and `@unlimit/ui` imports from generated code; checks against `DesignSystemService` allow-lists.
+2. **`StateCoverageGuard`** — verifies that every state in `gap_analysis.missing_states + extraction.specified_states` appears in the generated code (css states via pseudo-class patterns, functional states via conditional-render patterns).
+3. **`A11yGuard`** — runs component-specific a11y rules from `a11y-guard.rules.ts`; checks aria attributes, label props, and other accessibility requirements deterministically.
+
+**`QualityEvaluator`** — opt-in 5th LLM call (`USE_QUALITY_EVALUATOR=true`); returns 0-100 a11y score with Zod-validated structured output.

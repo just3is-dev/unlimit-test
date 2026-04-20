@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-import { SchemaRetry } from '@/reliability/schema-retry';
+import { SchemaRetry } from '@/llm/schema-retry';
 
 const schema = z.object({
   name: z.string(),

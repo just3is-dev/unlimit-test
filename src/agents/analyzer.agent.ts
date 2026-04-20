@@ -3,9 +3,9 @@ import { Inject, Injectable } from '@nestjs/common';
 import { DesignSystemService } from '@/design-system/design-system.service';
 import { LLM_PROVIDER, LLMProvider } from '@/llm/llm.provider';
 import { PromptLoaderService } from '@/llm/prompt-loader.service';
+import { SchemaRetry } from '@/llm/schema-retry';
 import { PipelineContext } from '@/pipeline/pipeline.context';
 import { AnalyzerOutput, AnalyzerOutputSchema, ParserOutput } from '@/pipeline/pipeline.schemas';
-import { SchemaRetry } from '@/reliability/schema-retry';
 
 import { BaseAgent } from './base.agent';
 

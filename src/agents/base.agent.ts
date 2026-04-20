@@ -3,8 +3,8 @@ import { Logger } from '@nestjs/common';
 
 import { LLMProvider } from '@/llm/llm.provider';
 import { PromptLoaderService } from '@/llm/prompt-loader.service';
+import { SchemaRetry } from '@/llm/schema-retry';
 import { PipelineContext } from '@/pipeline/pipeline.context';
-import { SchemaRetry } from '@/reliability/schema-retry';
 
 /**
  * BaseAgent<TInput, TOutput> — shared infrastructure for all pipeline agents.
