@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+This file provides guidance when working with code in this repository.
 
 ## Commands
 
@@ -10,7 +10,7 @@ npm run build          # compile to dist/
 npm run start:prod     # run compiled output
 
 npm run cli -- examples/01-payment-card/input.txt   # CLI interface
-npm run mcp            # MCP server
+npm run run:examples   # regenerate all three examples
 
 npm test               # run all Jest tests
 npm test -- --testPathPattern=schema-retry   # run a single test file
@@ -24,11 +24,12 @@ Copy `.env.example` → `.env` and set `ANTHROPIC_API_KEY` before running.
 
 ## Architecture
 
-A **4-stage multi-agent pipeline** over a single `PipelineService`. Three interfaces (HTTP / CLI / MCP) are thin facades over the same service — see `ADR-004`.
+A **4-stage multi-agent pipeline** over a single `PipelineService`. Two interfaces
+(HTTP / CLI) are thin facades over the same service.
 
 ```
-POST /pipeline          src/cli.ts          src/mcp.ts
-        \                   |                   /
+POST /pipeline          src/cli.ts
+        \                   |
          ──────────►  PipelineService  ◄────────
                             │
          ┌──────────────────┼──────────────────┐
@@ -37,7 +38,9 @@ POST /pipeline          src/cli.ts          src/mcp.ts
       (Haiku)   (Sonnet)  (Sonnet)  (determ.)  sub-system
 ```
 
-Each agent lives in `src/agents/` and extends `BaseAgent<TInput, TOutput>` — a wrapper that handles prompt loading, `generateObject` (Vercel AI SDK + Zod schema), and retry-with-feedback via `SchemaRetry`.
+Each agent lives in `src/agents/` and extends `BaseAgent<TInput, TOutput>` — a wrapper
+that handles prompt loading, `generateObject` (Vercel AI SDK + Zod schema), and
+retry-with-feedback via `SchemaRetry`.
 
 ### Module map
 
@@ -51,7 +54,7 @@ Each agent lives in `src/agents/` and extends `BaseAgent<TInput, TOutput>` — a
 | `prompts/` | Prompt files (`01-parser.md` … `04-validator-judge.md`) — loaded at runtime, not inlined |
 | `design-system/` | `tokens.json` + `components.json` — single source of truth for the DS allow-lists |
 | `examples/` | Three worked examples (`01-payment-card`, `02-transaction-table`, `03-kyc-wizard`) each with `input.txt`, `output.json`, `Component.tsx` |
-| `docs/adr/` | Six ADRs documenting key architectural decisions |
+| `docs/adr/` | Three ADRs documenting key architectural decisions |
 | `test/` | Unit tests for the three reliability guards |
 
 ### Key conventions
@@ -70,7 +73,3 @@ Four independent mechanisms run after `GeneratorAgent`:
 2. **`HallucinationGuard`** — regex-extracts `var(--)` and `@unlimit/ui` imports from generated code; checks against `DesignSystemService` allow-lists.
 3. **`CoverageCheck`** — verifies that every state in `gap_analysis.missing_states + extraction.specified_states` appears in the generated code (css states via pseudo-class patterns, functional states via conditional-render patterns).
 4. **`LLMJudge`** — opt-in 5th LLM call (`USE_LLM_JUDGE=true`); returns 0-100 a11y score with Zod-validated structured output.
-
-### Implementation progress
-
-Steps follow `plan.md §14`. Current state tracked in git log. Each step = one conventional commit.
