@@ -1,0 +1,159 @@
+{
+  "component": {
+    "name": "TransactionTable",
+    "type": "table",
+    "business_context": "Display a paginated and sortable list of transactions with status indicators and drill-down capability"
+  },
+  "extraction": {
+    "specified_states": [
+      "pending",
+      "completed",
+      "failed",
+      "refunded"
+    ],
+    "tokens_referenced": [],
+    "constraints": [
+      "Columns: date, amount, status, merchant name, payment method",
+      "Sortable by any column",
+      "Pagination options: 25, 50, or 100 rows per page",
+      "Status values must display as colored badges",
+      "Row click opens transaction details"
+    ]
+  },
+  "gap_analysis": {
+    "missing_states": [
+      "hover (row) — no hover highlight state specified for interactive rows",
+      "focus-visible (row) — keyboard-focused row needs a visible focus ring",
+      "loading — initial data fetch and sort/pagination transitions not specified",
+      "empty — no rows returned (e.g. no transactions found) state not specified",
+      "error — failed data fetch state not specified",
+      "sorted-asc / sorted-desc — active sort direction indicator per column header not specified",
+      "disabled (pagination controls) — prev/next buttons when on first/last page not specified",
+      "loading (pagination) — in-flight state while fetching next page not specified"
+    ],
+    "accessibility_gaps": [
+      "Table must use a semantic <table> element with <thead>, <tbody>, <th scope='col'> for all column headers",
+      "Sortable column headers must have aria-sort='ascending' | 'descending' | 'none' toggled on click",
+      "Clickable rows must have role='button' and tabIndex={0} with onKeyDown handling Enter/Space to trigger drill-down, or wrap in an <a> if navigating to a new route",
+      "Row click action must be announced — each row needs an aria-label such as 'View transaction from {merchant} on {date}'",
+      "Status Badge is purely visual — surrounding row or cell must include visually-hidden text conveying status for screen readers (e.g. 'Status: Failed')",
+      "Payment method icons (e.g. Visa, Mastercard) rendered via Icon must use aria-hidden=true when the text label is also present, or a meaningful aria-label when icon-only",
+      "Amount column must convey currency — aria-label or visually-hidden text should include currency code (e.g. 'USD 42.00') not just the formatted number",
+      "Pagination Select for rows-per-page must have an explicit label (e.g. 'Rows per page') associated via htmlFor",
+      "Pagination prev/next IconButtons must have descriptive aria-label='Previous page' and aria-label='Next page'",
+      "Disabled pagination buttons must set disabled={true} so they are removed from tab order",
+      "Loading state must use aria-busy=true on the table container and Skeleton rows must be wrapped in a container with aria-busy=true",
+      "Empty state must include a meaningful text message accessible to screen readers — not just a visual illustration",
+      "Error state must use role='alert' or aria-live='polite' to announce the failure to screen readers",
+      "Sort trigger buttons inside <th> must be focusable and activated via keyboard (Enter/Space)"
+    ],
+    "responsive_gaps": [
+      "Touch target for clickable rows must be >= 44px tall on mobile viewports",
+      "Sortable column header buttons must have a minimum touch target of 44x44px — consider padding compensation",
+      "Pagination prev/next IconButtons must meet 44x44px minimum touch target on mobile",
+      "Table horizontal overflow must be handled on narrow viewports — consider a scroll container with overflow-x: auto and a visible scroll affordance",
+      "On small screens, consider hiding lower-priority columns (e.g. payment method) or switching to a card-list layout — breakpoint strategy not specified",
+      "Rows-per-page Select must remain usable on touch — native select is preferred on mobile for accessibility",
+      "Amount and date columns must not truncate on narrow viewports in a way that loses meaning"
+    ],
+    "recommendations": [
+      "Use Badge with variant='warning' for 'pending', variant='success' for 'completed', variant='danger' for 'failed', and variant='neutral' for 'refunded' to represent transaction statuses",
+      "Use Skeleton with variant='rect' and full row width/height during the loading state; wrap the tbody container with aria-busy=true",
+      "Use Spinner with size='md' and label='Loading transactions' as an overlay or inline indicator during pagination/sort transitions",
+      "Use IconButton with variant='ghost', size='md', aria-label='Previous page', and disabled={isFirstPage} for the previous pagination control",
+      "Use IconButton with variant='ghost', size='md', aria-label='Next page', and disabled={isLastPage} for the next pagination control",
+      "Use Icon with name='chevron-down' or 'chevron-right' and aria-hidden=true inside sortable column header buttons to indicate sort direction",
+      "Use Icon with name='visa', 'mastercard', or 'amex' and aria-hidden=true alongside visible payment method text in the payment method column",
+      "Use Select with label='Rows per page' and options=[{value:'25',label:'25'},{value:'50',label:'50'},{value:'100',label:'100'}] for the pagination size control",
+      "Use Modal with title='Transaction Details' to render the drill-down view triggered by row click",
+      "Use --color-border-subtle for row dividers, --color-brand-primary for focus rings on interactive rows, and --color-focus-ring for focus-visible outlines on sort buttons and pagination controls",
+      "Use --spacing-3 or --spacing-4 for row padding to ensure adequate touch target height on mobile",
+      "Use --font-size-sm and --font-weight-medium for table cell content; --font-weight-semibold for column headers"
+    ]
+  },
+  "generated_code": {
+    "framework": "react",
+    "files": [
+      {
+        "filename": "TransactionTable.tsx",
+        "content": "import React, { useState, useCallback, KeyboardEvent } from 'react';\nimport {\n  Badge,\n  Button,\n  Card,\n  Icon,\n  IconButton,\n  Modal,\n  Select,\n  Skeleton,\n  Spinner,\n} from '@unlimit/ui';\nimport styles from './TransactionTable.module.css';\n\n// ─── Types ───────────────────────────────────────────────────────────────────\n\nexport type TransactionStatus = 'pending' | 'completed' | 'failed' | 'refunded';\nexport type PaymentMethod = 'visa' | 'mastercard' | 'amex' | 'other';\n\nexport interface Transaction {\n  id: string;\n  date: string;           // ISO-8601\n  amount: number;\n  currency: string;       // e.g. 'USD'\n  status: TransactionStatus;\n  merchant: string;\n  paymentMethod: PaymentMethod;\n  last4?: string;\n}\n\ntype SortKey = 'date' | 'amount' | 'status' | 'merchant' | 'paymentMethod';\ntype SortDir = 'asc' | 'desc' | 'none';\n\ninterface SortState {\n  key: SortKey;\n  dir: SortDir;\n}\n\nexport interface TransactionTableProps {\n  /** All transactions to display (consumer handles data fetching) */\n  transactions?: Transaction[];\n  /** True while the initial data is being fetched */\n  isLoading?: boolean;\n  /** True while a sort / page change is in-flight */\n  isFetching?: boolean;\n  /** Non-null string triggers the error state */\n  error?: string | null;\n  /** Called when the user wants to retry after an error */\n  onRetry?: () => void;\n}\n\n// ─── Helpers ─────────────────────────────────────────────────────────────────\n\nconst STATUS_BADGE_VARIANT: Record<TransactionStatus, 'warning' | 'success' | 'danger' | 'neutral'> = {\n  pending:   'warning',\n  completed: 'success',\n  failed:    'danger',\n  refunded:  'neutral',\n};\n\nconst STATUS_LABEL: Record<TransactionStatus, string> = {\n  pending:   'Pending',\n  completed: 'Completed',\n  failed:    'Failed',\n  refunded:  'Refunded',\n};\n\nconst PAYMENT_ICON_NAME: Record<PaymentMethod, 'visa' | 'mastercard' | 'amex' | null> = {\n  visa:       'visa',\n  mastercard: 'mastercard',\n  amex:       'amex',\n  other:      null,\n};\n\nconst PAYMENT_LABEL: Record<PaymentMethod, string> = {\n  visa:       'Visa',\n  mastercard: 'Mastercard',\n  amex:       'Amex',\n  other:      'Other',\n};\n\nfunction formatDate(iso: string): string {\n  return new Date(iso).toLocaleDateString('en-US', {\n    year: 'numeric', month: 'short', day: 'numeric',\n  });\n}\n\nfunction formatAmount(amount: number, currency: string): string {\n  return new Intl.NumberFormat('en-US', { style: 'currency', currency }).format(amount);\n}\n\nfunction sortTransactions(txns: Transaction[], sort: SortState): Transaction[] {\n  if (sort.dir === 'none') return txns;\n  return [...txns].sort((a, b) => {\n    let cmp = 0;\n    switch (sort.key) {\n      case 'date':          cmp = a.date.localeCompare(b.date); break;\n      case 'amount':        cmp = a.amount - b.amount; break;\n      case 'status':        cmp = a.status.localeCompare(b.status); break;\n      case 'merchant':      cmp = a.merchant.localeCompare(b.merchant); break;\n      case 'paymentMethod': cmp = a.paymentMethod.localeCompare(b.paymentMethod); break;\n    }\n    return sort.dir === 'asc' ? cmp : -cmp;\n  });\n}\n\nconst ROWS_PER_PAGE_OPTIONS = [\n  { value: '25',  label: '25' },\n  { value: '50',  label: '50' },\n  { value: '100', label: '100' },\n];\n\nconst SKELETON_ROW_COUNT = 6;\n\n// ─── Sub-components ──────────────────────────────────────────────────────────\n\ninterface SortButtonProps {\n  label: string;\n  sortKey: SortKey;\n  currentSort: SortState;\n  onSort: (key: SortKey) => void;\n}\n\nconst SortButton: React.FC<SortButtonProps> = ({ label, sortKey, currentSort, onSort }) => {\n  const isActive = currentSort.key === sortKey && currentSort.dir !== 'none';\n  const ariaSortMap: Record<SortDir, 'ascending' | 'descending' | 'none'> = {\n    asc:  'ascending',\n    desc: 'descending',\n    none: 'none',\n  };\n  const ariaSort = isActive ? ariaSortMap[currentSort.dir] : 'none';\n\n  const iconName =\n    isActive && currentSort.dir === 'asc' ? 'chevron-right' : 'chevron-down';\n\n  return (\n    <th\n      scope=\"col\"\n      aria-sort={ariaSort}\n      className={styles.th}\n    >\n      <button\n        type=\"button\"\n        className={`${styles.sortBtn} ${isActive ? styles.sortBtnActive : ''}`}\n        onClick={() => onSort(sortKey)}\n        aria-label={`Sort by ${label}${\n          isActive\n            ? currentSort.dir === 'asc'\n              ? ', currently ascending'\n              : ', currently descending'\n            : ''\n        }`}\n      >\n        <span>{label}</span>\n        <Icon\n          name={iconName}\n          size=\"sm\"\n          aria-hidden\n          // Rotate icon for ascending state via CSS class\n        />\n      </button>\n    </th>\n  );\n};\n\n// ─── Main Component ──────────────────────────────────────────────────────────\n\nexport const TransactionTable: React.FC<TransactionTableProps> = ({\n  transactions = [],\n  isLoading = false,\n  isFetching = false,\n  error = null,\n  onRetry,\n}) => {\n  const [sort, setSort] = useState<SortState>({ key: 'date', dir: 'desc' });\n  const [page, setPage] = useState(1);\n  const [rowsPerPage, setRowsPerPage] = useState('25');\n  const [selectedTx, setSelectedTx] = useState<Transaction | null>(null);\n\n  const rpp = parseInt(rowsPerPage, 10);\n\n  // Sort\n  const sorted = sortTransactions(transactions, sort);\n\n  // Paginate\n  const totalPages = Math.max(1, Math.ceil(sorted.length / rpp));\n  const pageRows = sorted.slice((page - 1) * rpp, page * rpp);\n\n  const handleSort = useCallback((key: SortKey) => {\n    setSort(prev => {\n      if (prev.key !== key) return { key, dir: 'asc' };\n      if (prev.dir === 'asc')  return { key, dir: 'desc' };\n      if (prev.dir === 'desc') return { key, dir: 'none' };\n      return { key, dir: 'asc' };\n    });\n    setPage(1);\n  }, []);\n\n  const handleRowsPerPageChange = (val: string) => {\n    setRowsPerPage(val);\n    setPage(1);\n  };\n\n  const openModal = (tx: Transaction) => setSelectedTx(tx);\n  const closeModal = () => setSelectedTx(null);\n\n  const handleRowKeyDown = (e: KeyboardEvent<HTMLTableRowElement>, tx: Transaction) => {\n    if (e.key === 'Enter' || e.key === ' ') {\n      e.preventDefault();\n      openModal(tx);\n    }\n  };\n\n  // ── Render states ──────────────────────────────────────────────────────────\n\n  const renderSkeletonRows = () =>\n    Array.from({ length: SKELETON_ROW_COUNT }).map((_, i) => (\n      <tr key={i} className={styles.skeletonRow}>\n        {[120, 80, 90, 140, 100].map((w, j) => (\n          <td key={j} className={styles.td}>\n            <Skeleton variant=\"rect\" width={w} height={16} />\n          </td>\n        ))}\n      </tr>\n    ));\n\n  const renderEmptyState = () => (\n    <tr>\n      <td colSpan={5} className={styles.emptyCell}>\n        <div className={styles.emptyState} role=\"status\">\n          <Icon name=\"info\" size=\"lg\" aria-hidden />\n          <p className={styles.emptyText}>No transactions found.</p>\n          <p className={styles.emptySubtext}>Try adjusting your filters or check back later.</p>\n        </div>\n      </td>\n    </tr>\n  );\n\n  const renderErrorState = () => (\n    <tr>\n      <td colSpan={5} className={styles.emptyCell}>\n        <div className={styles.errorState} role=\"alert\">\n          <Icon name=\"alert\" size=\"lg\" aria-hidden />\n          <p className={styles.errorText}>Failed to load transactions.</p>\n          {onRetry && (\n            <Button variant=\"secondary\" size=\"sm\" onClick={onRetry}>\n              Retry\n            </Button>\n          )}\n        </div>\n      </td>\n    </tr>\n  );\n\n  const renderRows = () =>\n    pageRows.map(tx => {\n      const iconName = PAYMENT_ICON_NAME[tx.paymentMethod];\n      return (\n        <tr\n          key={tx.id}\n          className={styles.row}\n          role=\"button\"\n          tabIndex={0}\n          aria-label={`View transaction from ${tx.merchant} on ${formatDate(tx.date)}`}\n          onClick={() => openModal(tx)}\n          onKeyDown={e => handleRowKeyDown(e, tx)}\n        >\n          {/* Date */}\n          <td className={styles.td}>\n            <span>{formatDate(tx.date)}</span>\n          </td>\n\n          {/* Amount */}\n          <td className={styles.td}>\n            <span\n              aria-label={`${tx.currency} ${tx.amount.toFixed(2)}`}\n              className={styles.amount}\n            >\n              {formatAmount(tx.amount, tx.currency)}\n            </span>\n          </td>\n\n          {/* Status */}\n          <td className={styles.td}>\n            <Badge variant={STATUS_BADGE_VARIANT[tx.status]}>\n              {STATUS_LABEL[tx.status]}\n            </Badge>\n            <span className={styles.srOnly}>Status: {STATUS_LABEL[tx.status]}</span>\n          </td>\n\n          {/* Merchant */}\n          <td className={styles.td}>\n            <span className={styles.merchant}>{tx.merchant}</span>\n          </td>\n\n          {/* Payment Method */}\n          <td className={styles.td}>\n            <span className={styles.paymentMethod}>\n              {iconName && (\n                <Icon name={iconName} size=\"sm\" aria-hidden />\n              )}\n              <span>{PAYMENT_LABEL[tx.paymentMethod]}</span>\n              {tx.last4 && (\n                <span\n                  className={styles.last4}\n                  aria-label={`ending in ${tx.last4}`}\n                >\n                  ···· {tx.last4}\n                </span>\n              )}\n            </span>\n          </td>\n        </tr>\n      );\n    });\n\n  // ── Modal content ──────────────────────────────────────────────────────────\n\n  const renderModalContent = () => {\n    if (!selectedTx) return null;\n    const tx = selectedTx;\n    const iconName = PAYMENT_ICON_NAME[tx.paymentMethod];\n    return (\n      <div className={styles.modalBody}>\n        <dl className={styles.detailGrid}>\n          <dt>Date</dt>\n          <dd>{formatDate(tx.date)}</dd>\n\n          <dt>Merchant</dt>\n          <dd>{tx.merchant}</dd>\n\n          <dt>Amount</dt>\n          <dd>\n            <span aria-label={`${tx.currency} ${tx.amount.toFixed(2)}`}>\n              {formatAmount(tx.amount, tx.currency)}\n            </span>\n          </dd>\n\n          <dt>Status</dt>\n          <dd>\n            <Badge variant={STATUS_BADGE_VARIANT[tx.status]}>\n              {STATUS_LABEL[tx.status]}\n            </Badge>\n          </dd>\n\n          <dt>Payment Method</dt>\n          <dd>\n            <span className={styles.paymentMethod}>\n              {iconName && <Icon name={iconName} size=\"sm\" aria-hidden />}\n              <span>{PAYMENT_LABEL[tx.paymentMethod]}</span>\n              {tx.last4 && (\n                <span\n                  className={styles.last4}\n                  aria-label={`ending in ${tx.last4}`}\n                >\n                  ···· {tx.last4}\n                </span>\n              )}\n            </span>\n          </dd>\n\n          <dt>Transaction ID</dt>\n          <dd className={styles.txId}>{tx.id}</dd>\n        </dl>\n      </div>\n    );\n  };\n\n  // ── Layout ─────────────────────────────────────────────────────────────────\n\n  const isInitialLoading = isLoading && transactions.length === 0;\n  const isEmpty = !isLoading && !error && transactions.length === 0;\n\n  return (\n    <>\n      <Card padding=\"lg\">\n        {/* Fetching overlay spinner */}\n        {isFetching && !isInitialLoading && (\n          <div className={styles.fetchingBar} role=\"status\" aria-live=\"polite\">\n            <Spinner size=\"sm\" label=\"Loading transactions\" />\n            <span className={styles.fetchingLabel}>Updating…</span>\n          </div>\n        )}\n\n        {/* Scroll container for horizontal overflow */}\n        <div\n          className={styles.tableWrapper}\n          aria-busy={isInitialLoading || isFetching}\n        >\n          <table className={styles.table} aria-label=\"Transactions\">\n            <thead>\n              <tr>\n                <SortButton label=\"Date\"           sortKey=\"date\"          currentSort={sort} onSort={handleSort} />\n                <SortButton label=\"Amount\"         sortKey=\"amount\"        currentSort={sort} onSort={handleSort} />\n                <SortButton label=\"Status\"         sortKey=\"status\"        currentSort={sort} onSort={handleSort} />\n                <SortButton label=\"Merchant\"       sortKey=\"merchant\"      currentSort={sort} onSort={handleSort} />\n                <SortButton label=\"Payment Method\" sortKey=\"paymentMethod\" currentSort={sort} onSort={handleSort} />\n              </tr>\n            </thead>\n\n            <tbody>\n              {isInitialLoading && renderSkeletonRows()}\n              {error            && renderErrorState()}\n              {isEmpty          && renderEmptyState()}\n              {!isInitialLoading && !error && !isEmpty && renderRows()}\n            </tbody>\n          </table>\n        </div>\n\n        {/* Pagination */}\n        {!isInitialLoading && !error && transactions.length > 0 && (\n          <div className={styles.pagination}>\n            <div className={styles.rowsPerPage}>\n              <Select\n                label=\"Rows per page\"\n                value={rowsPerPage}\n                onChange={handleRowsPerPageChange}\n                options={ROWS_PER_PAGE_OPTIONS}\n              />\n            </div>\n\n            <span className={styles.pageInfo} aria-live=\"polite\">\n              Page {page} of {totalPages}\n            </span>\n\n            <div className={styles.pageControls}>\n              <IconButton\n                variant=\"ghost\"\n                size=\"md\"\n                icon={<Icon name=\"chevron-left\" size=\"sm\" aria-hidden />}\n                aria-label=\"Previous page\"\n                disabled={page === 1}\n                onClick={() => setPage(p => Math.max(1, p - 1))}\n              />\n              <IconButton\n                variant=\"ghost\"\n                size=\"md\"\n                icon={<Icon name=\"chevron-right\" size=\"sm\" aria-hidden />}\n                aria-label=\"Next page\"\n                disabled={page === totalPages}\n                onClick={() => setPage(p => Math.min(totalPages, p + 1))}\n              />\n            </div>\n          </div>\n        )}\n      </Card>\n\n      {/* Transaction Detail Modal */}\n      <Modal\n        open={selectedTx !== null}\n        onClose={closeModal}\n        title=\"Transaction Details\"\n      >\n        {renderModalContent()}\n      </Modal>\n    </>\n  );\n};\n\nexport default TransactionTable;\n"
+      },
+      {
+        "filename": "TransactionTable.module.css",
+        "content": "/* ─── Table wrapper ─────────────────────────────────────────────────────────── */\n.tableWrapper {\n  overflow-x: auto;\n  -webkit-overflow-scrolling: touch;\n  border-radius: var(--radius-md);\n  border: 1px solid var(--color-border);\n}\n\n.table {\n  width: 100%;\n  border-collapse: collapse;\n  font-family: var(--font-family-sans);\n  font-size: var(--font-size-sm);\n  color: var(--color-foreground);\n  background: var(--color-background);\n}\n\n/* ─── Header ────────────────────────────────────────────────────────────────── */\n.th {\n  background: var(--color-neutral-100);\n  border-bottom: 1px solid var(--color-border);\n  padding: 0;\n  text-align: left;\n  white-space: nowrap;\n}\n\n.sortBtn {\n  display: inline-flex;\n  align-items: center;\n  gap: var(--spacing-1);\n  width: 100%;\n  padding: var(--spacing-3) var(--spacing-4);\n  min-height: 44px;\n  background: transparent;\n  border: none;\n  cursor: pointer;\n  font-family: var(--font-family-sans);\n  font-size: var(--font-size-sm);\n  font-weight: var(--font-weight-semibold);\n  color: var(--color-neutral-600);\n  text-align: left;\n  transition: color 0.15s ease, background 0.15s ease;\n  border-radius: var(--radius-sm);\n}\n\n.sortBtn:hover {\n  color: var(--color-foreground);\n  background: var(--color-neutral-200);\n}\n\n.sortBtn:focus-visible {\n  outline: 2px solid var(--color-focus-ring);\n  outline-offset: -2px;\n}\n\n.sortBtnActive {\n  color: var(--color-brand-primary);\n}\n\n.sortBtnActive svg {\n  color: var(--color-brand-primary);\n}\n\n/* ─── Body rows ─────────────────────────────────────────────────────────────── */\n.row {\n  border-bottom: 1px solid var(--color-border-subtle);\n  cursor: pointer;\n  transition: background 0.12s ease;\n  outline: none;\n}\n\n.row:last-child {\n  border-bottom: none;\n}\n\n.row:hover {\n  background: var(--color-neutral-100);\n}\n\n.row:focus-visible {\n  outline: 2px solid var(--color-focus-ring);\n  outline-offset: -2px;\n  background: var(--color-neutral-100);\n}\n\n/* Ensure minimum 44px touch target height */\n.row > td {\n  min-height: 44px;\n}\n\n.td {\n  padding: var(--spacing-3) var(--spacing-4);\n  vertical-align: middle;\n  font-size: var(--font-size-sm);\n  font-weight: var(--font-weight-regular);\n  color: var(--color-foreground);\n  line-height: var(--line-height-normal);\n  white-space: nowrap;\n}\n\n/* ─── Cell content ──────────────────────────────────────────────────────────── */\n.amount {\n  font-family: var(--font-family-mono);\n  font-weight: var(--font-weight-medium);\n  font-size: var(--font-size-sm);\n}\n\n.merchant {\n  font-weight: var(--font-weight-medium);\n  max-width: 200px;\n  overflow: hidden;\n  text-overflow: ellipsis;\n  white-space: nowrap;\n  display: inline-block;\n}\n\n.paymentMethod {\n  display: inline-flex;\n  align-items: center;\n  gap: var(--spacing-2);\n}\n\n.last4 {\n  font-family: var(--font-family-mono);\n  font-size: var(--font-size-xs);\n  color: var(--color-neutral-400);\n}\n\n/* ─── Skeleton rows ─────────────────────────────────────────────────────────── */\n.skeletonRow {\n  border-bottom: 1px solid var(--color-border-subtle);\n}\n\n.skeletonRow .td {\n  padding: var(--spacing-3) var(--spacing-4);\n}\n\n/* ─── Empty / Error states ──────────────────────────────────────────────────── */\n.emptyCell {\n  padding: var(--spacing-12) var(--spacing-4);\n  text-align: center;\n}\n\n.emptyState,\n.errorState {\n  display: flex;\n  flex-direction: column;\n  align-items: center;\n  gap: var(--spacing-3);\n}\n\n.emptyText,\n.errorText {\n  font-size: var(--font-size-base);\n  font-weight: var(--font-weight-semibold);\n  color: var(--color-neutral-900);\n  margin: 0;\n}\n\n.emptySubtext {\n  font-size: var(--font-size-sm);\n  color: var(--color-muted-foreground);\n  margin: 0;\n}\n\n.errorState {\n  color: var(--color-danger);\n}\n\n.errorText {\n  color: var(--color-danger);\n}\n\n/* ─── Fetching bar ──────────────────────────────────────────────────────────── */\n.fetchingBar {\n  display: flex;\n  align-items: center;\n  gap: var(--spacing-2);\n  padding: var(--spacing-2) var(--spacing-4);\n  background: var(--color-neutral-100);\n  border-radius: var(--radius-md);\n  margin-bottom: var(--spacing-3);\n}\n\n.fetchingLabel {\n  font-size: var(--font-size-sm);\n  color: var(--color-muted-foreground);\n}\n\n/* ─── Pagination ────────────────────────────────────────────────────────────── */\n.pagination {\n  display: flex;\n  align-items: center;\n  justify-content: flex-end;\n  gap: var(--spacing-4);\n  padding-top: var(--spacing-4);\n  flex-wrap: wrap;\n}\n\n.rowsPerPage {\n  display: flex;\n  align-items: center;\n  gap: var(--spacing-2);\n}\n\n.pageInfo {\n  font-size: var(--font-size-sm);\n  color: var(--color-muted-foreground);\n  white-space: nowrap;\n}\n\n.pageControls {\n  display: flex;\n  align-items: center;\n  gap: var(--spacing-1);\n}\n\n/* ─── Modal body ────────────────────────────────────────────────────────────── */\n.modalBody {\n  padding: var(--spacing-4) 0;\n}\n\n.detailGrid {\n  display: grid;\n  grid-template-columns: 140px 1fr;\n  gap: var(--spacing-3) var(--spacing-4);\n  margin: 0;\n}\n\n.detailGrid dt {\n  font-size: var(--font-size-sm);\n  font-weight: var(--font-weight-semibold);\n  color: var(--color-muted-foreground);\n  align-self: center;\n}\n\n.detailGrid dd {\n  font-size: var(--font-size-sm);\n  font-weight: var(--font-weight-regular);\n  color: var(--color-foreground);\n  margin: 0;\n  align-self: center;\n}\n\n.txId {\n  font-family: var(--font-family-mono);\n  font-size: var(--font-size-xs);\n  color: var(--color-neutral-400);\n  word-break: break-all;\n}\n\n/* ─── Screen-reader only ────────────────────────────────────────────────────── */\n.srOnly {\n  position: absolute;\n  width: 1px;\n  height: 1px;\n  padding: 0;\n  margin: -1px;\n  overflow: hidden;\n  clip: rect(0, 0, 0, 0);\n  white-space: nowrap;\n  border: 0;\n}\n\n/* ─── Responsive ────────────────────────────────────────────────────────────── */\n@media (max-width: 640px) {\n  /* Hide lower-priority column on small screens */\n  .table thead tr th:nth-child(5),\n  .table tbody tr td:nth-child(5) {\n    display: none;\n  }\n\n  .pagination {\n    justify-content: space-between;\n  }\n\n  .merchant {\n    max-width: 120px;\n  }\n}\n"
+      },
+      {
+        "filename": "TransactionTable.stories.tsx",
+        "content": "import React from 'react';\nimport type { Meta, StoryObj } from '@storybook/react';\nimport { TransactionTable } from './TransactionTable';\nimport type { Transaction } from './TransactionTable';\n\nconst MOCK_TRANSACTIONS: Transaction[] = [\n  {\n    id: 'txn_001',\n    date: '2024-06-01T10:30:00Z',\n    amount: 142.50,\n    currency: 'USD',\n    status: 'completed',\n    merchant: 'Stripe Inc.',\n    paymentMethod: 'visa',\n    last4: '4242',\n  },\n  {\n    id: 'txn_002',\n    date: '2024-06-02T14:15:00Z',\n    amount: 89.99,\n    currency: 'USD',\n    status: 'pending',\n    merchant: 'Shopify Store',\n    paymentMethod: 'mastercard',\n    last4: '5555',\n  },\n  {\n    id: 'txn_003',\n    date: '2024-06-03T09:00:00Z',\n    amount: 250.00,\n    currency: 'USD',\n    status: 'failed',\n    merchant: 'AWS Services',\n    paymentMethod: 'amex',\n    last4: '3782',\n  },\n  {\n    id: 'txn_004',\n    date: '2024-06-04T16:45:00Z',\n    amount: 35.00,\n    currency: 'USD',\n    status: 'refunded',\n    merchant: 'Netflix',\n    paymentMethod: 'visa',\n    last4: '1234',\n  },\n  {\n    id: 'txn_005',\n    date: '2024-06-05T11:20:00Z',\n    amount: 1200.00,\n    currency: 'USD',\n    status: 'completed',\n    merchant: 'Apple Inc.',\n    paymentMethod: 'other',\n  },\n];\n\nconst meta: Meta<typeof TransactionTable> = {\n  title: 'Fintech/TransactionTable',\n  component: TransactionTable,\n  parameters: { layout: 'padded' },\n};\nexport default meta;\n\ntype Story = StoryObj<typeof TransactionTable>;\n\nexport const Default: Story = {\n  args: { transactions: MOCK_TRANSACTIONS },\n};\n\nexport const Loading: Story = {\n  args: { isLoading: true, transactions: [] },\n};\n\nexport const Fetching: Story = {\n  args: { transactions: MOCK_TRANSACTIONS, isFetching: true },\n};\n\nexport const Empty: Story = {\n  args: { transactions: [] },\n};\n\nexport const Error: Story = {\n  args: {\n    transactions: [],\n    error: 'Unable to load transactions. Please try again.',\n    onRetry: () => alert('Retrying…'),\n  },\n};\n"
+      }
+    ],
+    "states_covered": [
+      "pending",
+      "completed",
+      "failed",
+      "refunded",
+      "hover (row)",
+      "focus-visible (row)",
+      "loading",
+      "empty",
+      "error",
+      "sorted-asc",
+      "sorted-desc",
+      "disabled (pagination prev)",
+      "disabled (pagination next)",
+      "loading (pagination / fetching)"
+    ],
+    "tokens_used": [
+      "--color-brand-primary",
+      "--color-brand-primary-hover",
+      "--color-neutral-0",
+      "--color-neutral-100",
+      "--color-neutral-200",
+      "--color-neutral-400",
+      "--color-neutral-600",
+      "--color-neutral-900",
+      "--color-success",
+      "--color-warning",
+      "--color-danger",
+      "--color-background",
+      "--color-foreground",
+      "--color-muted",
+      "--color-muted-foreground",
+      "--color-border",
+      "--color-border-subtle",
+      "--color-focus-ring",
+      "--spacing-1",
+      "--spacing-2",
+      "--spacing-3",
+      "--spacing-4",
+      "--spacing-8",
+      "--spacing-12",
+      "--radius-sm",
+      "--radius-md",
+      "--font-family-sans",
+      "--font-family-mono",
+      "--font-size-xs",
+      "--font-size-sm",
+      "--font-size-base",
+      "--font-weight-regular",
+      "--font-weight-medium",
+      "--font-weight-semibold",
+      "--line-height-normal"
+    ]
+  },
+  "validation": {
+    "token_compliance": true,
+    "states_coverage": "6/12",
+    "accessibility_score": "2/3",
+    "issues_found": [
+      "State not implemented in code: \"pending\"",
+      "State not implemented in code: \"hover (row) — no hover highlight state specified for interactive rows\"",
+      "State not implemented in code: \"focus-visible (row) — keyboard-focused row needs a visible focus ring\"",
+      "State not implemented in code: \"sorted-asc / sorted-desc — active sort direction indicator per column header not specified\"",
+      "State not implemented in code: \"disabled (pagination controls) — prev/next buttons when on first/last page not specified\"",
+      "State not implemented in code: \"loading (pagination) — in-flight state while fetching next page not specified\"",
+      "IconButton must have aria-label"
+    ],
+    "hallucinations_caught": []
+  }
+}

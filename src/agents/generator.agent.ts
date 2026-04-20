@@ -18,7 +18,7 @@ import { BaseAgent } from './base.agent';
  *   - Tags each state with kind: 'css' | 'functional' for CoverageCheck
  *
  * DS context injected: component specs, CSS variable values, conventions.
- * maxTokens = 8192 — component code can be long.
+ * maxTokens = 16000 — complex multi-step components (KYC wizard, etc.) can be long.
  *
  * Model: MODEL_GENERATOR (Sonnet) — code generation with DS constraints.
  */
@@ -62,7 +62,7 @@ export class GeneratorAgent extends BaseAgent<AnalyzerOutput, GeneratorOutput> {
       userPrompt,
       schema: GeneratorOutputSchema,
       model: process.env.MODEL_GENERATOR ?? 'claude-sonnet-4-6',
-      maxTokens: 8192,
+      maxTokens: 16000,
     });
   }
 }

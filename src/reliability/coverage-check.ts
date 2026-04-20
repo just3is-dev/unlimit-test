@@ -10,6 +10,18 @@ function capitalize(s: string): string {
 }
 
 /**
+ * Extracts the base state key from a possibly annotated state name.
+ * The Analyzer often returns states with rationale appended after " — ".
+ *
+ *   "hover — card should have a distinct hover style"  →  "hover"
+ *   "focus-visible — keyboard focus ring must be..."   →  "focus-visible"
+ *   "loading"                                          →  "loading"
+ */
+function normalizeStateName(state: string): string {
+  return state.split(' — ')[0].split(' - ')[0].trim();
+}
+
+/**
  * CoverageCheck — verifies that every required state is expressed in the
  * generated code using the appropriate pattern for its kind.
  *
@@ -35,15 +47,18 @@ export class CoverageCheck {
     files: Array<{ filename: string; content: string }>,
   ): CoverageResult {
     const code = files.map((f) => f.content).join('\n');
+    // coveredMap keyed by normalized short name, e.g. "hover"
     const coveredMap = new Map(statesCovered.map((s) => [s.name, s.kind]));
 
     const missingInCode: string[] = [];
 
     for (const state of requiredStates) {
       // Skip "default" — base state is always considered present
-      if (state === 'default') continue;
+      if (normalizeStateName(state) === 'default') continue;
 
-      const kind = coveredMap.get(state);
+      // Normalize: "hover — card should have..." → "hover"
+      const baseName = normalizeStateName(state);
+      const kind = coveredMap.get(baseName);
 
       if (!kind) {
         // Not even claimed by the generator
@@ -51,7 +66,7 @@ export class CoverageCheck {
         continue;
       }
 
-      if (!this.stateFoundInCode(state, kind, code)) {
+      if (!this.stateFoundInCode(baseName, kind, code)) {
         missingInCode.push(state);
       }
     }
@@ -103,9 +118,7 @@ export class CoverageCheck {
           `  - "${state}" (functional): add conditional JSX — e.g. {is${capitalize(state)} && <...>}`,
         );
       } else {
-        lines.push(
-          `  - "${state}": not claimed in states_covered — add it with the correct kind`,
-        );
+        lines.push(`  - "${state}": not claimed in states_covered — add it with the correct kind`);
       }
     }
 

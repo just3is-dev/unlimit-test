@@ -31,8 +31,9 @@ export class DesignSystemService implements OnModuleInit {
 
   private context!: DesignSystemContext;
 
-  // Resolve paths relative to the project root (two levels up from src/design-system/)
-  private readonly dsDir = join(__dirname, '..', '..', 'design-system');
+  // process.cwd() resolves to the project root regardless of whether we're
+  // running via ts-node (src/design-system/) or compiled output (dist/src/design-system/).
+  private readonly dsDir = join(process.cwd(), 'design-system');
 
   onModuleInit(): void {
     this.context = this.build();

@@ -22,7 +22,9 @@ export class PromptLoaderService implements OnModuleInit {
   private readonly logger = new Logger(PromptLoaderService.name);
   private readonly cache = new Map<string, string>();
 
-  private readonly promptsDir = join(__dirname, '..', '..', '..', 'prompts');
+  // process.cwd() resolves to the project root regardless of whether we're
+  // running via ts-node (src/llm/) or compiled output (dist/src/llm/).
+  private readonly promptsDir = join(process.cwd(), 'prompts');
 
   onModuleInit(): void {
     // Pre-warm the cache for all known prompt files

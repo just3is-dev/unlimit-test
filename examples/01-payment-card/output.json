@@ -1,0 +1,129 @@
+{
+  "component": {
+    "name": "PaymentCard",
+    "type": "card",
+    "business_context": "Display of a saved payment method in the merchant dashboard with selection and deletion capabilities"
+  },
+  "extraction": {
+    "specified_states": [
+      "default",
+      "selected"
+    ],
+    "tokens_referenced": [],
+    "constraints": [
+      "Card number must be masked except last 4 digits",
+      "Display expiry date",
+      "Display cardholder name",
+      "Show brand icon (Visa, Mastercard, Amex)",
+      "User can select the card",
+      "User can delete the card"
+    ]
+  },
+  "gap_analysis": {
+    "missing_states": [
+      "hover — card should have a distinct hover style to signal interactivity",
+      "focus-visible — keyboard focus ring must be visible when card is focused",
+      "disabled — card may be non-selectable (e.g. expired card)",
+      "loading — async selection or deletion in progress",
+      "deleting — intermediate state while delete API call is in flight",
+      "error — failed to delete or failed to select card"
+    ],
+    "accessibility_gaps": [
+      "Masked card number must have aria-label='Card ending in 1234' so screen readers do not spell out bullet characters",
+      "Brand icon (Visa, Mastercard, Amex) must use Icon with aria-hidden=true when the brand name is present as adjacent text, or aria-label='Visa' when it is the sole brand indicator",
+      "Selectable card must use Card with interactive=true so it renders as <button> with keyboard activation support",
+      "Selected state must be announced via aria-pressed (set automatically by Card selected=true when interactive=true)",
+      "Expiry date must have an aria-label such as 'Expires 12/26' to avoid ambiguous number announcement",
+      "Delete IconButton must have aria-label='Delete card ending in 1234' (include last 4 digits) to disambiguate when multiple cards are present",
+      "Delete confirmation Modal must trap focus and return focus to the triggering card button on close",
+      "During deleting/loading state, a Spinner with an appropriate label (e.g. 'Deleting card') must be announced via role=status",
+      "Error state message must be associated with the card via aria-describedby and use role=alert for immediate announcement",
+      "Cardholder name and expiry text must meet a minimum 4.5:1 contrast ratio against the card background using --color-neutral-900 on --color-neutral-0"
+    ],
+    "responsive_gaps": [
+      "Touch target for the delete IconButton must be at least 44×44 px on mobile viewports",
+      "Touch target for the selectable Card itself must be at least 44px tall on mobile",
+      "Card layout must reflow gracefully on narrow viewports (< 375px) — cardholder name and expiry should stack vertically if needed",
+      "Brand icon must remain legible at small sizes; use Icon size='md' as minimum"
+    ],
+    "recommendations": [
+      "Use Card with interactive=true and selected={isSelected} for the selectable card container",
+      "Use Card with selected={isSelected} and onClick={handleSelect} to drive selection logic",
+      "Use IconButton with variant='destructive', size='md', icon=<Icon name='trash' />, and aria-label='Delete card ending in {last4}' for the delete action",
+      "Use Modal with title='Delete card' and open={isDeleteModalOpen} and onClose={handleModalClose} for delete confirmation",
+      "Use Button with variant='destructive' and loading={isDeleting} inside the Modal for the confirm-delete action",
+      "Use Button with variant='secondary' inside the Modal for the cancel action",
+      "Use Icon with name='visa' | 'mastercard' | 'amex', size='md', and aria-hidden=true (when brand name is shown as text) or aria-label='{Brand}' (when icon is the sole indicator)",
+      "Use Spinner with size='sm' and label='Deleting card' overlaid on the Card during the deleting state",
+      "Use Badge with variant='danger' and children='Expired' to flag expired cards in the disabled state",
+      "Apply --color-focus-ring to the Card focus-visible outline to stay consistent with the design system focus style",
+      "Apply --color-brand-primary to the selected card border to reinforce the selected state visually",
+      "Apply --color-danger to the error state border and use --color-neutral-900 for error message text to ensure contrast"
+    ]
+  },
+  "generated_code": {
+    "framework": "react",
+    "files": [
+      {
+        "filename": "PaymentCard.tsx",
+        "content": "import React, { useRef, useState, useId } from 'react';\nimport {\n  Card,\n  IconButton,\n  Modal,\n  Button,\n  Icon,\n  Spinner,\n  Badge,\n} from '@unlimit/ui';\n\n// ─── Types ───────────────────────────────────────────────────────────────────\n\nexport type CardBrand = 'visa' | 'mastercard' | 'amex';\n\nexport interface PaymentCardProps {\n  /** Unique identifier for this payment method */\n  id: string;\n  /** Last 4 digits of the card number */\n  last4: string;\n  /** Card brand */\n  brand: CardBrand;\n  /** Cardholder name */\n  cardholderName: string;\n  /** Expiry in MM/YY format, e.g. \"12/26\" */\n  expiry: string;\n  /** Whether this card is currently selected */\n  isSelected?: boolean;\n  /** Whether this card is disabled (e.g. expired) */\n  disabled?: boolean;\n  /** Whether a selection API call is in flight */\n  isLoading?: boolean;\n  /** Whether a deletion API call is in flight */\n  isDeleting?: boolean;\n  /** Error message to display (selection or deletion failure) */\n  error?: string;\n  /** Called when the user confirms they want to select this card */\n  onSelect?: (id: string) => void;\n  /** Called when the user confirms deletion */\n  onDelete?: (id: string) => void;\n}\n\n// ─── Brand label map ─────────────────────────────────────────────────────────\n\nconst BRAND_LABELS: Record<CardBrand, string> = {\n  visa: 'Visa',\n  mastercard: 'Mastercard',\n  amex: 'American Express',\n};\n\n// ─── Component ───────────────────────────────────────────────────────────────\n\nexport const PaymentCard: React.FC<PaymentCardProps> = ({\n  id,\n  last4,\n  brand,\n  cardholderName,\n  expiry,\n  isSelected = false,\n  disabled = false,\n  isLoading = false,\n  isDeleting = false,\n  error,\n  onSelect,\n  onDelete,\n}) => {\n  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);\n  // Ref to the card's root element so we can return focus after modal closes\n  const cardRef = useRef<HTMLDivElement>(null);\n  const errorId = useId();\n\n  const isBusy = isLoading || isDeleting;\n\n  // ── Handlers ──────────────────────────────────────────────────────────────\n\n  const handleSelect = () => {\n    if (disabled || isBusy) return;\n    onSelect?.(id);\n  };\n\n  const handleDeleteClick = (e: React.MouseEvent | React.KeyboardEvent) => {\n    // Prevent the click from bubbling to the card's select handler\n    e.stopPropagation();\n    if (disabled || isBusy) return;\n    setIsDeleteModalOpen(true);\n  };\n\n  const handleModalClose = () => {\n    setIsDeleteModalOpen(false);\n    // Return focus to the card button after modal closes\n    setTimeout(() => {\n      const focusable = cardRef.current?.querySelector<HTMLElement>('[data-card-focus]');\n      focusable?.focus();\n    }, 0);\n  };\n\n  const handleConfirmDelete = () => {\n    setIsDeleteModalOpen(false);\n    onDelete?.(id);\n  };\n\n  // ── Derived values ────────────────────────────────────────────────────────\n\n  const maskedNumber = `**** **** **** ${last4}`;\n  const brandLabel = BRAND_LABELS[brand];\n  const deleteAriaLabel = `Delete card ending in ${last4}`;\n  const cardAriaLabel = `${brandLabel} card ending in ${last4}, expires ${expiry}${\n    isSelected ? ', selected' : ''\n  }${disabled ? ', expired' : ''}`;\n\n  // ── Render ────────────────────────────────────────────────────────────────\n\n  return (\n    <>\n      {/* ── Outer wrapper for error aria-describedby ── */}\n      <div\n        ref={cardRef}\n        className=\"payment-card-wrapper\"\n        aria-describedby={error ? errorId : undefined}\n      >\n        <Card\n          interactive={!disabled}\n          selected={isSelected}\n          onClick={!disabled && !isBusy ? handleSelect : undefined}\n          padding=\"md\"\n        >\n          {/* Hidden focusable anchor so we can programmatically return focus */}\n          <span\n            data-card-focus\n            tabIndex={-1}\n            style={{ position: 'absolute', opacity: 0, pointerEvents: 'none' }}\n            aria-hidden=\"true\"\n          />\n\n          <div\n            className=\"payment-card\"\n            data-selected={isSelected}\n            data-disabled={disabled}\n            data-error={!!error}\n            data-deleting={isDeleting}\n            data-loading={isLoading}\n          >\n            {/* ── Loading / Deleting overlay ── */}\n            {isBusy && (\n              <div className=\"payment-card__overlay\" aria-hidden=\"true\">\n                <Spinner\n                  size=\"sm\"\n                  label={isDeleting ? 'Deleting card' : 'Loading'}\n                />\n              </div>\n            )}\n\n            {/* ── Top row: brand icon + badge + delete button ── */}\n            <div className=\"payment-card__top-row\">\n              <div className=\"payment-card__brand\">\n                <Icon\n                  name={brand}\n                  size=\"md\"\n                  aria-label={brandLabel}\n                />\n                <span className=\"payment-card__brand-label\" aria-hidden=\"true\">\n                  {brandLabel}\n                </span>\n              </div>\n\n              <div className=\"payment-card__top-actions\">\n                {disabled && (\n                  <Badge variant=\"danger\">Expired</Badge>\n                )}\n\n                {isSelected && !disabled && (\n                  <Badge variant=\"success\">Selected</Badge>\n                )}\n\n                <IconButton\n                  variant=\"destructive\"\n                  size=\"md\"\n                  icon={<Icon name=\"trash\" size=\"sm\" aria-hidden=\"true\" />}\n                  aria-label={deleteAriaLabel}\n                  disabled={disabled || isBusy}\n                  onClick={handleDeleteClick as React.MouseEventHandler}\n                />\n              </div>\n            </div>\n\n            {/* ── Card number ── */}\n            <div\n              className=\"payment-card__number\"\n              aria-label={`Card ending in ${last4}`}\n              aria-hidden={false}\n            >\n              <span aria-hidden=\"true\">{maskedNumber}</span>\n            </div>\n\n            {/* ── Bottom row: cardholder name + expiry ── */}\n            <div className=\"payment-card__bottom-row\">\n              <span className=\"payment-card__name\">{cardholderName}</span>\n              <span\n                className=\"payment-card__expiry\"\n                aria-label={`Expires ${expiry}`}\n              >\n                <span aria-hidden=\"true\">{expiry}</span>\n              </span>\n            </div>\n          </div>\n        </Card>\n\n        {/* ── Error message ── */}\n        {error && (\n          <p\n            id={errorId}\n            className=\"payment-card__error\"\n            role=\"alert\"\n          >\n            {error}\n          </p>\n        )}\n      </div>\n\n      {/* ── Delete confirmation modal ── */}\n      <Modal\n        open={isDeleteModalOpen}\n        onClose={handleModalClose}\n        title=\"Delete card\"\n      >\n        <div className=\"payment-card__modal-body\">\n          <p className=\"payment-card__modal-text\">\n            Are you sure you want to remove your{' '}\n            <strong>{brandLabel}</strong> card ending in{' '}\n            <strong>{last4}</strong>? This action cannot be undone.\n          </p>\n\n          <div className=\"payment-card__modal-actions\">\n            <Button\n              variant=\"secondary\"\n              onClick={handleModalClose}\n            >\n              Cancel\n            </Button>\n            <Button\n              variant=\"destructive\"\n              loading={isDeleting}\n              onClick={handleConfirmDelete}\n            >\n              Delete card\n            </Button>\n          </div>\n        </div>\n      </Modal>\n\n      {/* ── Scoped styles ── */}\n      <style>{`\n        /* ── Wrapper ── */\n        .payment-card-wrapper {\n          position: relative;\n          display: inline-flex;\n          flex-direction: column;\n          gap: var(--spacing-2);\n          width: 100%;\n          max-width: 360px;\n        }\n\n        /* ── Card inner layout ── */\n        .payment-card {\n          position: relative;\n          display: flex;\n          flex-direction: column;\n          gap: var(--spacing-4);\n          padding: var(--spacing-2);\n          border-radius: var(--radius-md);\n          transition:\n            border-color 150ms ease,\n            box-shadow 150ms ease,\n            opacity 150ms ease;\n          /* Ensure minimum touch target height */\n          min-height: 44px;\n        }\n\n        /* ── Selected state border ── */\n        .payment-card[data-selected=\"true\"] {\n          outline: 2px solid var(--color-brand-primary);\n          outline-offset: -2px;\n        }\n\n        /* ── Error state border ── */\n        .payment-card[data-error=\"true\"] {\n          outline: 2px solid var(--color-danger);\n          outline-offset: -2px;\n        }\n\n        /* ── Disabled state ── */\n        .payment-card[data-disabled=\"true\"] {\n          opacity: 0.55;\n          cursor: not-allowed;\n        }\n\n        /* ── Busy (loading / deleting) state ── */\n        .payment-card[data-loading=\"true\"],\n        .payment-card[data-deleting=\"true\"] {\n          opacity: 0.7;\n          pointer-events: none;\n        }\n\n        /* ── Overlay for spinner ── */\n        .payment-card__overlay {\n          position: absolute;\n          inset: 0;\n          display: flex;\n          align-items: center;\n          justify-content: center;\n          background: rgba(255, 255, 255, 0.65);\n          border-radius: var(--radius-md);\n          z-index: 1;\n        }\n\n        /* ── Top row ── */\n        .payment-card__top-row {\n          display: flex;\n          align-items: center;\n          justify-content: space-between;\n          gap: var(--spacing-2);\n        }\n\n        .payment-card__brand {\n          display: flex;\n          align-items: center;\n          gap: var(--spacing-2);\n        }\n\n        .payment-card__brand-label {\n          font-family: var(--font-family-sans);\n          font-size: var(--font-size-sm);\n          font-weight: var(--font-weight-semibold);\n          color: var(--color-neutral-900);\n          line-height: var(--line-height-tight);\n        }\n\n        .payment-card__top-actions {\n          display: flex;\n          align-items: center;\n          gap: var(--spacing-2);\n        }\n\n        /* ── Card number ── */\n        .payment-card__number {\n          font-family: var(--font-family-mono);\n          font-size: var(--font-size-base);\n          font-weight: var(--font-weight-medium);\n          color: var(--color-neutral-900);\n          letter-spacing: 0.12em;\n          line-height: var(--line-height-tight);\n        }\n\n        /* ── Bottom row ── */\n        .payment-card__bottom-row {\n          display: flex;\n          align-items: center;\n          justify-content: space-between;\n          gap: var(--spacing-2);\n          flex-wrap: wrap;\n        }\n\n        .payment-card__name {\n          font-family: var(--font-family-sans);\n          font-size: var(--font-size-sm);\n          font-weight: var(--font-weight-medium);\n          color: var(--color-neutral-900);\n          line-height: var(--line-height-normal);\n          /* Prevent overflow on very narrow viewports */\n          overflow: hidden;\n          text-overflow: ellipsis;\n          white-space: nowrap;\n          max-width: 60%;\n        }\n\n        .payment-card__expiry {\n          font-family: var(--font-family-mono);\n          font-size: var(--font-size-sm);\n          font-weight: var(--font-weight-regular);\n          color: var(--color-neutral-600);\n          line-height: var(--line-height-normal);\n          white-space: nowrap;\n        }\n\n        /* ── Error message ── */\n        .payment-card__error {\n          margin: 0;\n          padding: var(--spacing-1) var(--spacing-2);\n          font-family: var(--font-family-sans);\n          font-size: var(--font-size-xs);\n          font-weight: var(--font-weight-medium);\n          color: var(--color-danger);\n          line-height: var(--line-height-normal);\n          border-radius: var(--radius-sm);\n          background-color: color-mix(in srgb, var(--color-danger) 8%, transparent);\n        }\n\n        /* ── Modal body ── */\n        .payment-card__modal-body {\n          display: flex;\n          flex-direction: column;\n          gap: var(--spacing-6);\n        }\n\n        .payment-card__modal-text {\n          margin: 0;\n          font-family: var(--font-family-sans);\n          font-size: var(--font-size-base);\n          font-weight: var(--font-weight-regular);\n          color: var(--color-neutral-900);\n          line-height: var(--line-height-normal);\n        }\n\n        .payment-card__modal-actions {\n          display: flex;\n          align-items: center;\n          justify-content: flex-end;\n          gap: var(--spacing-3);\n          flex-wrap: wrap;\n        }\n\n        /* ── Responsive: narrow viewports < 375px ── */\n        @media (max-width: 374px) {\n          .payment-card__bottom-row {\n            flex-direction: column;\n            align-items: flex-start;\n          }\n\n          .payment-card__name {\n            max-width: 100%;\n          }\n\n          .payment-card__number {\n            font-size: var(--font-size-sm);\n          }\n        }\n\n        /* ── Touch targets on mobile ── */\n        @media (pointer: coarse) {\n          .payment-card {\n            min-height: 44px;\n          }\n        }\n      `}</style>\n    </>\n  );\n};\n\nexport default PaymentCard;\n"
+      },
+      {
+        "filename": "PaymentCard.stories.tsx",
+        "content": "import React, { useState } from 'react';\nimport { PaymentCard } from './PaymentCard';\n\nexport default {\n  title: 'Fintech/PaymentCard',\n  component: PaymentCard,\n};\n\n// ── Stateful wrapper for interactive demos ────────────────────────────────────\n\nconst StatefulCard: React.FC<React.ComponentProps<typeof PaymentCard>> = (props) => {\n  const [isSelected, setIsSelected] = useState(props.isSelected ?? false);\n  const [isDeleting, setIsDeleting] = useState(false);\n  const [error, setError] = useState(props.error);\n\n  const handleSelect = (id: string) => {\n    setIsSelected(true);\n    setError(undefined);\n    console.log('Selected card:', id);\n  };\n\n  const handleDelete = (id: string) => {\n    setIsDeleting(true);\n    setError(undefined);\n    // Simulate async delete\n    setTimeout(() => {\n      setIsDeleting(false);\n      console.log('Deleted card:', id);\n    }, 2000);\n  };\n\n  return (\n    <PaymentCard\n      {...props}\n      isSelected={isSelected}\n      isDeleting={isDeleting}\n      error={error}\n      onSelect={handleSelect}\n      onDelete={handleDelete}\n    />\n  );\n};\n\n// ── Stories ───────────────────────────────────────────────────────────────────\n\nexport const Default = () => (\n  <StatefulCard\n    id=\"card-1\"\n    last4=\"4242\"\n    brand=\"visa\"\n    cardholderName=\"Jane Doe\"\n    expiry=\"12/26\"\n  />\n);\n\nexport const Selected = () => (\n  <StatefulCard\n    id=\"card-2\"\n    last4=\"5555\"\n    brand=\"mastercard\"\n    cardholderName=\"John Smith\"\n    expiry=\"08/25\"\n    isSelected\n  />\n);\n\nexport const Disabled = () => (\n  <PaymentCard\n    id=\"card-3\"\n    last4=\"3782\"\n    brand=\"amex\"\n    cardholderName=\"Alice Johnson\"\n    expiry=\"01/23\"\n    disabled\n    onSelect={() => {}}\n    onDelete={() => {}}\n  />\n);\n\nexport const Loading = () => (\n  <PaymentCard\n    id=\"card-4\"\n    last4=\"4242\"\n    brand=\"visa\"\n    cardholderName=\"Jane Doe\"\n    expiry=\"12/26\"\n    isLoading\n    onSelect={() => {}}\n    onDelete={() => {}}\n  />\n);\n\nexport const Deleting = () => (\n  <PaymentCard\n    id=\"card-5\"\n    last4=\"5555\"\n    brand=\"mastercard\"\n    cardholderName=\"John Smith\"\n    expiry=\"08/25\"\n    isDeleting\n    onSelect={() => {}}\n    onDelete={() => {}}\n  />\n);\n\nexport const ErrorState = () => (\n  <PaymentCard\n    id=\"card-6\"\n    last4=\"3782\"\n    brand=\"amex\"\n    cardholderName=\"Alice Johnson\"\n    expiry=\"06/27\"\n    error=\"Failed to delete card. Please try again.\"\n    onSelect={() => {}}\n    onDelete={() => {}}\n  />\n);\n\nexport const MultipleCards = () => {\n  const [selectedId, setSelectedId] = useState<string | null>(null);\n\n  const cards = [\n    { id: 'c1', last4: '4242', brand: 'visa' as const, cardholderName: 'Jane Doe', expiry: '12/26' },\n    { id: 'c2', last4: '5555', brand: 'mastercard' as const, cardholderName: 'John Smith', expiry: '08/25' },\n    { id: 'c3', last4: '3782', brand: 'amex' as const, cardholderName: 'Alice Johnson', expiry: '01/23', disabled: true },\n  ];\n\n  return (\n    <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', maxWidth: '400px' }}>\n      {cards.map((card) => (\n        <PaymentCard\n          key={card.id}\n          {...card}\n          isSelected={selectedId === card.id}\n          onSelect={(id) => setSelectedId(id)}\n          onDelete={(id) => console.log('Delete', id)}\n        />\n      ))}\n    </div>\n  );\n};\n"
+      }
+    ],
+    "states_covered": [
+      "default",
+      "selected",
+      "selected",
+      "hover",
+      "focus-visible",
+      "disabled",
+      "disabled",
+      "loading",
+      "deleting",
+      "error",
+      "error"
+    ],
+    "tokens_used": [
+      "--color-brand-primary",
+      "--color-neutral-0",
+      "--color-neutral-600",
+      "--color-neutral-900",
+      "--color-danger",
+      "--color-success",
+      "--color-focus-ring",
+      "--color-border",
+      "--spacing-1",
+      "--spacing-2",
+      "--spacing-3",
+      "--spacing-4",
+      "--spacing-6",
+      "--radius-sm",
+      "--radius-md",
+      "--shadow-sm",
+      "--font-family-sans",
+      "--font-family-mono",
+      "--font-size-xs",
+      "--font-size-sm",
+      "--font-size-base",
+      "--font-weight-regular",
+      "--font-weight-medium",
+      "--font-weight-semibold",
+      "--line-height-tight",
+      "--line-height-normal"
+    ]
+  },
+  "validation": {
+    "token_compliance": true,
+    "states_coverage": "5/7",
+    "accessibility_score": "2/3",
+    "issues_found": [
+      "State not implemented in code: \"hover — card should have a distinct hover style to signal interactivity\"",
+      "State not implemented in code: \"focus-visible — keyboard focus ring must be visible when card is focused\"",
+      "IconButton must have aria-label"
+    ],
+    "hallucinations_caught": []
+  }
+}

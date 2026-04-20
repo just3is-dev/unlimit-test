@@ -1,7 +1,7 @@
 import { z } from 'zod';
-import { Inject, Logger } from '@nestjs/common';
+import { Logger } from '@nestjs/common';
 
-import { LLM_PROVIDER, LLMProvider } from '@/llm/llm.provider';
+import { LLMProvider } from '@/llm/llm.provider';
 import { PromptLoaderService } from '@/llm/prompt-loader.service';
 import { PipelineContext } from '@/pipeline/pipeline.context';
 import { SchemaRetry } from '@/reliability/schema-retry';
@@ -20,16 +20,17 @@ import { SchemaRetry } from '@/reliability/schema-retry';
  * On SchemaRetry failure the feedback is appended to the user prompt so the
  * model receives both the original input and the correction instruction.
  *
- * DI note: concrete agents are NestJS providers. They call `super()` with
- * the injected dependencies. The `@Inject` decorators here are used as
- * documentation; actual injection happens in each subclass constructor.
+ * DI note: BaseAgent carries no NestJS decorators intentionally — adding @Inject
+ * here would emit design:paramtypes metadata on the abstract class and confuse
+ * NestJS into using the base class's 4-param signature instead of each concrete
+ * subclass's 3-param signature. All DI decorators live in the concrete subclasses.
  */
 export abstract class BaseAgent<TInput, TOutput> {
   protected readonly logger: Logger;
 
   constructor(
     protected readonly agentName: string,
-    @Inject(LLM_PROVIDER) protected readonly llm: LLMProvider,
+    protected readonly llm: LLMProvider,
     protected readonly prompts: PromptLoaderService,
     protected readonly schemaRetry: SchemaRetry,
   ) {
