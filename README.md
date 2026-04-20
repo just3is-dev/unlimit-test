@@ -123,6 +123,47 @@ Each stage has a typed Zod schema. Structured output is handled by the Vercel AI
 (`generateObject`). On schema validation failure, `SchemaRetry` re-prompts the model
 with per-field error feedback (up to 3 attempts).
 
+### Request flow with self-correction
+
+```mermaid
+sequenceDiagram
+    actor Dev
+    participant PS as PipelineService
+    participant PA as Parser (Haiku)
+    participant AA as Analyzer (Sonnet)
+    participant GA as Generator (Sonnet)
+    participant HG as HallucinationGuard
+    participant CC as CoverageCheck
+    participant VA as Validator
+
+    Dev->>PS: run(description)
+    PS->>PA: run()
+    PA-->>PS: ParserOutput
+
+    PS->>AA: run()
+    AA-->>PS: AnalyzerOutput
+
+    PS->>GA: run()
+    GA-->>PS: GeneratorOutput
+
+    PS->>HG: check(files)
+    PS->>CC: check(requiredStates, files)
+
+    alt guards pass
+        HG-->>PS: passed ✓
+        CC-->>PS: passed ✓
+    else any guard fails
+        HG-->>PS: feedbackPrompt
+        CC-->>PS: feedbackPrompt
+        PS->>GA: run(feedback)
+        GA-->>PS: GeneratorOutput (revised)
+    end
+
+    PS->>VA: run()
+    VA-->>PS: ValidatorOutput
+    PS-->>Dev: FinalOutput
+```
+
 ### Reliability sub-system
 
 Validation runs without any LLM calls:
