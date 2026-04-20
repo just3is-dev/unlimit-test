@@ -113,7 +113,8 @@ flowchart TD
         http["HTTP API\nNestJS / Express\nPOST /pipeline"]
         svc["PipelineService\norchestrator"]
         agents["Agents\nParser · Analyzer · Generator · Validator"]
-        reliability["Reliability\nSchemaRetry · HallucinationGuard · StateCoverageGuard"]
+        reliability["Reliability (deterministic)\nSchemaRetry · HallucinationGuard\nStateCoverageGuard · A11yGuard"]
+        qe["QualityEvaluator\nopt-in · Haiku"]
         ds["DesignSystemService\ntokens.json · components.json"]
     end
 
@@ -122,9 +123,11 @@ flowchart TD
     cli -->|"run()"| svc
     http -->|"run()"| svc
     svc -->|"sequential stages"| agents
+    svc -->|"guard retry loop"| reliability
+    svc -.->|"USE_QUALITY_EVALUATOR=true"| qe
     svc --> ds
-    agents --> reliability
     agents -->|"generateObject()"| anthropic
+    qe -->|"generateObject()"| anthropic
 ```
 
 Each stage has a typed Zod schema. Structured output is handled by the Vercel AI SDK
@@ -141,8 +144,10 @@ sequenceDiagram
     participant AA as Analyzer (Sonnet)
     participant GA as Generator (Sonnet)
     participant HG as HallucinationGuard
-    participant CC as StateCoverageGuard
+    participant SC as StateCoverageGuard
+    participant AG as A11yGuard
     participant VA as Validator
+    participant QE as QualityEvaluator (opt-in)
 
     Dev->>PS: run(description)
     PS->>PA: run()
@@ -154,21 +159,28 @@ sequenceDiagram
     PS->>GA: run()
     GA-->>PS: GeneratorOutput
 
-    PS->>HG: check(files)
-    PS->>CC: check(requiredStates, files)
+    loop guard-feedback retry (max 1 retry)
+        PS->>HG: check(files)
+        PS->>SC: check(requiredStates, files)
+        PS->>AG: check(files)
+        note over PS: results saved to context
 
-    alt guards pass
-        HG-->>PS: passed ✓
-        CC-->>PS: passed ✓
-    else any guard fails
-        HG-->>PS: feedbackPrompt
-        CC-->>PS: feedbackPrompt
-        PS->>GA: run(feedback)
-        GA-->>PS: GeneratorOutput (revised)
+        alt all guards pass or retries exhausted
+            note over PS: exit loop
+        else any guard fails
+            PS->>GA: run(combinedFeedback)
+            GA-->>PS: GeneratorOutput (revised)
+        end
     end
 
-    PS->>VA: run()
+    PS->>VA: run(context)
     VA-->>PS: ValidatorOutput
+
+    opt USE_QUALITY_EVALUATOR=true
+        PS->>QE: evaluate()
+        QE-->>PS: QualityOutput
+    end
+
     PS-->>Dev: FinalOutput
 ```
 
