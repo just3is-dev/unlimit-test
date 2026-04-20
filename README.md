@@ -35,8 +35,6 @@ curl -X POST http://localhost:3000/pipeline \
 | `MODEL_PARSER` | | `claude-haiku-4-5` | Model for Parser stage |
 | `MODEL_ANALYZER` | | `claude-sonnet-4-6` | Model for Analyzer stage |
 | `MODEL_GENERATOR` | | `claude-sonnet-4-6` | Model for Generator stage |
-| `MODEL_QUALITY_EVALUATOR` | | `claude-haiku-4-5` | Model for QualityEvaluator stage |
-| `USE_QUALITY_EVALUATOR` | | `false` | Enable opt-in a11y scoring stage |
 | `MAX_RETRIES` | | `3` | Schema retry attempts per stage |
 
 ### Tests
@@ -80,12 +78,6 @@ Input (text description)
 └───────┬───────┘
         │
         ▼
-┌───────────────┐  Scores: a11y quality 0–100
-│ QualityEval.  │  opt-in via USE_QUALITY_EVALUATOR=true
-│ (Haiku, opt-in)
-└───────┬───────┘
-        │
-        ▼
   FinalOutput (JSON)
 ```
 
@@ -114,7 +106,6 @@ flowchart TD
         svc["PipelineService\norchestrator"]
         agents["Agents\nParser · Analyzer · Generator · Validator"]
         reliability["Reliability (deterministic)\nHallucinationGuard · StateCoverageGuard · A11yGuard"]
-        qe["QualityEvaluator\nopt-in · Haiku"]
         ds["DesignSystemService\ntokens.json · components.json"]
     end
 
@@ -124,10 +115,8 @@ flowchart TD
     http -->|"run()"| svc
     svc -->|"sequential stages"| agents
     svc -->|"guard retry loop"| reliability
-    svc -.->|"USE_QUALITY_EVALUATOR=true"| qe
     svc --> ds
     agents -->|"generateObject()"| anthropic
-    qe -->|"generateObject()"| anthropic
 ```
 
 Each stage has a typed Zod schema. Structured output is handled by the Vercel AI SDK
@@ -147,7 +136,6 @@ sequenceDiagram
     participant SC as StateCoverageGuard
     participant AG as A11yGuard
     participant VA as Validator
-    participant QE as QualityEvaluator (opt-in)
 
     Dev->>PS: run(description)
     PS->>PA: run()
@@ -176,11 +164,6 @@ sequenceDiagram
     PS->>VA: run(context)
     VA-->>PS: ValidatorOutput
 
-    opt USE_QUALITY_EVALUATOR=true
-        PS->>QE: evaluate()
-        QE-->>PS: QualityOutput
-    end
-
     PS-->>Dev: FinalOutput
 ```
 
@@ -200,8 +183,6 @@ their feedback prompts are combined and fed back into a Generator retry. Results
 in `PipelineContext` — ValidatorAgent reads them to assemble the final report without
 re-running the checks.
 
-**QualityEvaluator** is a separate opt-in LLM stage: `USE_QUALITY_EVALUATOR=true` (uses Haiku).
-
 ### Model strategy
 
 | Stage     | Model  | Reason                                      |
@@ -209,9 +190,8 @@ re-running the checks.
 | Parser    | Haiku  | Structured extraction — low reasoning load  |
 | Analyzer  | Sonnet | Gap analysis requires DS knowledge          |
 | Generator | Sonnet | Code generation with DS constraints         |
-| QualityEvaluator  | Haiku  | Rubric scoring — structured output          |
 
-All models are overridable via ENV: `MODEL_PARSER`, `MODEL_ANALYZER`, `MODEL_GENERATOR`, `MODEL_QUALITY_EVALUATOR`.
+All models are overridable via ENV: `MODEL_PARSER`, `MODEL_ANALYZER`, `MODEL_GENERATOR`.
 
 ---
 
@@ -274,14 +254,13 @@ The pipeline architecture, reliability mechanisms, and ADRs reflect decisions ma
 collaboratively with AI tooling throughout the process.
 
 **Model:** Claude (Anthropic) — `claude-sonnet-4-6` for Analyzer and Generator,
-`claude-haiku-4-5` for Parser and the optional QualityEvaluator.
+`claude-haiku-4-5` for Parser.
 
 **Where AI was used:**
 
 - *Parser* — structured extraction of component type, states, tokens, and business context from free-text descriptions
 - *Analyzer* — gap analysis: identifying missing states and accessibility issues not mentioned in the description
 - *Generator* — React component generation using design system constraints
-- *QualityEvaluator (opt-in)* — accessibility scoring with per-category breakdown
 
 **What worked well:**
 

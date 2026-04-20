@@ -8,7 +8,6 @@ import {
   FinalOutput,
   GeneratorOutput,
   ParserOutput,
-  QualityEvaluatorOutput,
   ValidatorOutput,
 } from './pipeline.schemas';
 
@@ -35,7 +34,6 @@ export class PipelineContext {
   analyzerOutput?: AnalyzerOutput;
   generatorOutput?: GeneratorOutput;
   validatorOutput?: ValidatorOutput;
-  qualityOutput?: QualityEvaluatorOutput;
 
   /**
    * Guard results from the final Generator check (set by PipelineService after
@@ -88,7 +86,6 @@ export class PipelineContext {
         tokens_used: generated_code.tokens_used,
       },
       validation,
-      ...(this.qualityOutput && { quality: this.qualityOutput }),
     };
   }
 }

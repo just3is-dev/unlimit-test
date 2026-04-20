@@ -9,7 +9,6 @@ import { LlmModule } from '@/llm/llm.module';
 import { SchemaRetry } from '@/llm/schema-retry';
 import { A11yGuard } from '@/reliability/a11y-guard';
 import { HallucinationGuard } from '@/reliability/hallucination-guard';
-import { QualityEvaluator } from '@/reliability/quality-evaluator';
 import { StateCoverageGuard } from '@/reliability/state-coverage-guard';
 
 import { PipelineController } from './pipeline.controller';
@@ -23,7 +22,6 @@ import { PipelineService } from './pipeline.service';
     HallucinationGuard,
     A11yGuard,
     StateCoverageGuard,
-    QualityEvaluator,
     ParserAgent,
     AnalyzerAgent,
     GeneratorAgent,

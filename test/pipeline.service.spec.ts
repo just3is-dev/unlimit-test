@@ -68,9 +68,6 @@ describe('PipelineService (stub agents)', () => {
       }),
     };
 
-    // QualityEvaluator is opt-in — returns undefined when USE_QUALITY_EVALUATOR is not set
-    const mockQualityEvaluator = { evaluate: jest.fn().mockResolvedValue(undefined) };
-
     // Guards always pass in unit tests — feedback loop is tested separately
     const mockHallucinationGuard = {
       check: jest.fn().mockReturnValue({ passed: true, feedbackPrompt: '' }),
@@ -88,7 +85,6 @@ describe('PipelineService (stub agents)', () => {
       mockAnalyzer as any,
       mockGenerator as any,
       mockValidator as any,
-      mockQualityEvaluator as any,
       mockHallucinationGuard as any,
       mockStateCoverageGuard as any,
       mockA11yGuard as any,

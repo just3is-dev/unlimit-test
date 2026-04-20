@@ -11,7 +11,7 @@ import { GeneratorOutput, ValidatorOutput } from '@/pipeline/pipeline.schemas';
  * request — in the Stage 3 retry loop — and their results are passed here via
  * context rather than being re-executed.
  *
- * Does NOT call an LLM. QualityEvaluator is a separate opt-in step.
+ * Does NOT call an LLM — purely deterministic.
  * See ADR-002 for the deterministic-first reliability rationale.
  */
 @Injectable()

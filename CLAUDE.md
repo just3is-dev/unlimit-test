@@ -38,8 +38,6 @@ POST /pipeline          src/cli.ts
       (Haiku)   (Sonnet)  (Sonnet)  (determ.)  sub-system
 ```
 
-Opt-in 5th stage: `QualityEvaluator` (Haiku) — enabled via `USE_QUALITY_EVALUATOR=true`.
-
 Each agent lives in `src/agents/` and extends `BaseAgent<TInput, TOutput>` — a wrapper
 that handles prompt loading, `generateObject` (Vercel AI SDK + Zod schema), and
 retry-with-feedback via `SchemaRetry`.
@@ -52,8 +50,8 @@ retry-with-feedback via `SchemaRetry`.
 | `src/pipeline/` | `PipelineService` (orchestrator), `PipelineContext` (shared state), `pipeline.schemas.ts` (all Zod schemas + `FinalOutputSchema`) |
 | `src/agents/` | `BaseAgent`, `ParserAgent`, `AnalyzerAgent`, `GeneratorAgent`, `ValidatorAgent` |
 | `src/llm/` | `LLMProvider` interface, `AnthropicProvider` (Vercel AI SDK), `PromptLoaderService`, `SchemaRetry` (structured-output retry wrapper) |
-| `src/reliability/` | `HallucinationGuard`, `StateCoverageGuard`, `A11yGuard` — deterministic post-generation guards; `QualityEvaluator` (opt-in via `USE_QUALITY_EVALUATOR=true`) |
-| `prompts/` | Prompt files (`01-parser.md` … `04-quality-evaluator.md`) — loaded at runtime, not inlined |
+| `src/reliability/` | `HallucinationGuard`, `StateCoverageGuard`, `A11yGuard` — deterministic post-generation guards |
+| `prompts/` | Prompt files (`01-parser.md` … `03-generator.md`) — loaded at runtime, not inlined |
 | `design-system/` | `tokens.json` + `components.json` — single source of truth for the DS allow-lists |
 | `examples/` | Three worked examples (`01-payment-card`, `02-transaction-table`, `03-kyc-wizard`) each with `input.txt`, `output.json`, `Component.tsx` |
 | `docs/adr/` | Three ADRs documenting key architectural decisions |
@@ -65,7 +63,7 @@ retry-with-feedback via `SchemaRetry`.
 - **Components import**: `import { Button } from '@unlimit/ui'` (see `components.json` `import-base`).
 - **States have two kinds**: `css` (hover, focus-visible, selected, disabled — expressed as pseudo-classes/attributes) and `functional` (loading, error, deleting — expressed as conditional JSX). `StateCoverageGuard` uses different regex patterns per kind.
 - **Prompts are files**: `PromptLoaderService` reads `prompts/*.md` and injects `{{variable}}` placeholders at call time. Never inline prompts.
-- **Models per stage** (cost-aware): Parser → `MODEL_PARSER` (Haiku), Analyzer/Generator → `MODEL_ANALYZER`/`MODEL_GENERATOR` (Sonnet), QualityEvaluator → `MODEL_QUALITY_EVALUATOR` (Haiku). All overridable via ENV.
+- **Models per stage** (cost-aware): Parser → `MODEL_PARSER` (Haiku), Analyzer/Generator → `MODEL_ANALYZER`/`MODEL_GENERATOR` (Sonnet). All overridable via ENV.
 
 ### LLM call reliability (`src/llm/schema-retry.ts`)
 
@@ -79,4 +77,3 @@ Three deterministic guards run in `PipelineService` after every `GeneratorAgent`
 2. **`StateCoverageGuard`** — verifies that every state in `gap_analysis.missing_states + extraction.specified_states` appears in the generated code (css states via pseudo-class patterns, functional states via conditional-render patterns).
 3. **`A11yGuard`** — runs component-specific a11y rules from `a11y-guard.rules.ts`; checks aria attributes, label props, and other accessibility requirements deterministically.
 
-**`QualityEvaluator`** — opt-in 5th LLM call (`USE_QUALITY_EVALUATOR=true`); returns 0-100 a11y score with Zod-validated structured output.

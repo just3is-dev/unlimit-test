@@ -28,7 +28,7 @@ export class PromptLoaderService implements OnModuleInit {
 
   onModuleInit(): void {
     // Pre-warm the cache for all known prompt files
-    const knownPrompts = ['01-parser', '02-analyzer', '03-generator', '04-quality-evaluator'];
+    const knownPrompts = ['01-parser', '02-analyzer', '03-generator'];
     let loaded = 0;
     for (const name of knownPrompts) {
       try {
