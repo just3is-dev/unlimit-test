@@ -1,13 +1,14 @@
 import { Module } from '@nestjs/common';
 
 import { DesignSystemModule } from '@/design-system/design-system.module';
+import { LlmModule } from '@/llm/llm.module';
 
 /**
  * Root application module.
  *
  * Feature modules are registered here as the project grows:
  *   - DesignSystemModule   ✓ (step 2)
- *   - LlmModule            (step 4)
+ *   - LlmModule            ✓ (step 4)
  *   - PipelineModule       (step 7)
  *
  * Each agent is a NestJS provider inside PipelineModule, giving us
@@ -15,7 +16,7 @@ import { DesignSystemModule } from '@/design-system/design-system.module';
  * multi-agent architecture (see ADR-001).
  */
 @Module({
-  imports: [DesignSystemModule],
+  imports: [DesignSystemModule, LlmModule],
   controllers: [],
   providers: [],
 })
