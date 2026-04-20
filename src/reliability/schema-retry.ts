@@ -1,18 +1,9 @@
 import { z } from 'zod';
 import { Injectable, Logger } from '@nestjs/common';
 
-/**
- * Callback type for a single LLM attempt.
- *
- * @param feedbackPrompt - On retry, contains a description of the previous
- *   failure so the model can correct itself. Undefined on the first attempt.
- */
-export type AttemptFn<T> = (feedbackPrompt?: string) => Promise<T>;
+import type { AttemptFn, SchemaRetryOptions } from './schema-retry.types';
 
-export interface SchemaRetryOptions {
-  /** How many total attempts (1 = no retries). Defaults to MAX_RETRIES env or 3. */
-  maxAttempts?: number;
-}
+export type { AttemptFn, SchemaRetryOptions } from './schema-retry.types';
 
 /**
  * SchemaRetry — reliability wrapper for LLM calls that must conform to a Zod schema.
