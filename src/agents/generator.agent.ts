@@ -33,7 +33,11 @@ export class GeneratorAgent extends BaseAgent<AnalyzerOutput, GeneratorOutput> {
     super('GeneratorAgent', llm, prompts, schemaRetry);
   }
 
-  async run(input: AnalyzerOutput, context: PipelineContext): Promise<GeneratorOutput> {
+  async run(
+    input: AnalyzerOutput,
+    context: PipelineContext,
+    externalFeedback?: string,
+  ): Promise<GeneratorOutput> {
     const { componentSpecs, cssVariableValues, importBase } = this.ds.getContext();
 
     const cssWithValues = Object.entries(cssVariableValues)
@@ -41,7 +45,7 @@ export class GeneratorAgent extends BaseAgent<AnalyzerOutput, GeneratorOutput> {
       .join('\n');
 
     // Combine parser + analyzer output as the user-turn input
-    const userPrompt = JSON.stringify(
+    const basePrompt = JSON.stringify(
       {
         component: context.parserOutput?.component,
         extraction: context.parserOutput?.extraction,
@@ -50,6 +54,11 @@ export class GeneratorAgent extends BaseAgent<AnalyzerOutput, GeneratorOutput> {
       null,
       2,
     );
+
+    // On retry: append guard feedback so the model can fix specific issues
+    const userPrompt = externalFeedback
+      ? `${basePrompt}\n\n---\nPREVIOUS ATTEMPT ISSUES (fix all before regenerating):\n${externalFeedback}`
+      : basePrompt;
 
     return this.generate({
       promptName: '03-generator',

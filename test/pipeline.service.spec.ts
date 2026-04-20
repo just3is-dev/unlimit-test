@@ -71,6 +71,14 @@ describe('PipelineService (stub agents)', () => {
     // LLMJudge is opt-in — returns undefined when USE_LLM_JUDGE is not set
     const mockJudge = { evaluate: jest.fn().mockResolvedValue(undefined) };
 
+    // Guards always pass in unit tests — feedback loop is tested separately
+    const mockHallucinationGuard = {
+      check: jest.fn().mockReturnValue({ passed: true, feedbackPrompt: '' }),
+    };
+    const mockCoverageCheck = {
+      check: jest.fn().mockReturnValue({ passed: true, feedbackPrompt: '' }),
+    };
+
     service = new PipelineService(
       mockDs as any,
       mockParser as any,
@@ -78,6 +86,8 @@ describe('PipelineService (stub agents)', () => {
       mockGenerator as any,
       mockValidator as any,
       mockJudge as any,
+      mockHallucinationGuard as any,
+      mockCoverageCheck as any,
     );
   });
 
