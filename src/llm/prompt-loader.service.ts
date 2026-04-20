@@ -60,8 +60,10 @@ export class PromptLoaderService implements OnModuleInit {
       template = template.replaceAll(`{{${key}}}`, value);
     }
 
-    // Warn if any unreplaced placeholders remain
-    const remaining = template.match(/\{\{[^}]+\}\}/g);
+    // Warn if any unreplaced placeholders remain.
+    // Only match {{snake_case_names}} — not CSS-in-JS objects like {{ display: 'flex' }}
+    // that may appear inside injected content.
+    const remaining = template.match(/\{\{[a-zA-Z_][a-zA-Z0-9_]*\}\}/g);
     if (remaining) {
       this.logger.warn(`Prompt "${name}" has unreplaced placeholders: ${remaining.join(', ')}`);
     }
