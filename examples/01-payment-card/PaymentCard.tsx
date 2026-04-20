@@ -1,259 +1,321 @@
 // @ts-nocheck
-import React, { useState } from 'react';
+import React, { useState, useRef, useCallback } from 'react';
 import {
   Card,
   Icon,
   IconButton,
+  Badge,
   Modal,
   Button,
-  Badge,
   Spinner,
 } from '@unlimit/ui';
-import type { ReactNode } from 'react';
-
-// ─── Types ───────────────────────────────────────────────────────────────────
 
 export type CardBrand = 'visa' | 'mastercard' | 'amex';
 
 export interface PaymentCardProps {
-  /** Unique identifier for this card */
-  id: string;
-  /** Full or last-4 digits — component always masks to last 4 */
+  /** Last 4 digits of the card number */
   last4: string;
-  /** MM/YY expiry string, e.g. "12/26" */
-  expiry: string;
+  /** Card brand */
+  brand: CardBrand;
   /** Cardholder name */
   cardholderName: string;
-  /** Card network brand */
-  brand: CardBrand;
+  /** Expiry in MM/YY format */
+  expiry: string;
   /** Whether this card is currently selected */
   isSelected?: boolean;
   /** Whether the card is expired / non-selectable */
   disabled?: boolean;
-  /** Async selection in progress */
+  /** Whether an async selection operation is in progress */
   isLoading?: boolean;
-  /** Async deletion in progress */
+  /** Whether a delete operation is in progress */
   isDeleting?: boolean;
-  /** Error message to surface (failed selection or load) */
+  /** Error message to display (deletion or load failure) */
   error?: string;
-  /** Called when the user selects this card */
-  onSelect?: (id: string) => void;
+  /** Called when the user confirms card selection */
+  onSelect?: (last4: string) => void;
   /** Called when the user confirms deletion */
-  onDelete?: (id: string) => Promise<void> | void;
+  onDelete?: (last4: string) => Promise<void>;
 }
 
-// ─── Brand label map ─────────────────────────────────────────────────────────
-
-const BRAND_LABELS: Record<CardBrand, string> = {
+const BRAND_LABEL: Record<CardBrand, string> = {
   visa: 'Visa',
   mastercard: 'Mastercard',
-  amex: 'American Express',
+  amex: 'Amex',
 };
 
-// ─── Component ───────────────────────────────────────────────────────────────
-
 export const PaymentCard: React.FC<PaymentCardProps> = ({
-  id,
   last4,
-  expiry,
-  cardholderName,
   brand,
+  cardholderName,
+  expiry,
   isSelected = false,
   disabled = false,
   isLoading = false,
-  isDeleting = false,
+  isDeleting: isDeleteingProp = false,
   error,
   onSelect,
   onDelete,
 }) => {
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
-  const [deleteError, setDeleteError] = useState<string | null>(null);
-  const [localDeleting, setLocalDeleting] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(isDeleteingProp);
+  const [deleteError, setDeleteError] = useState<string | undefined>(undefined);
+  const deleteButtonRef = useRef<HTMLButtonElement>(null);
 
-  const effectiveDeleting = isDeleting || localDeleting;
-  const brandLabel = BRAND_LABELS[brand];
+  const handleSelect = useCallback(() => {
+    if (!disabled && !isLoading && !isDeleting) {
+      onSelect?.(last4);
+    }
+  }, [disabled, isLoading, isDeleting, onSelect, last4]);
 
-  // ── Handlers ──────────────────────────────────────────────────────────────
+  const handleDeleteIntent = useCallback(
+    (e: React.MouseEvent) => {
+      e.stopPropagation();
+      setDeleteError(undefined);
+      setIsDeleteModalOpen(true);
+    },
+    []
+  );
 
-  const handleSelect = () => {
-    if (disabled || effectiveDeleting || isLoading) return;
-    onSelect?.(id);
-  };
+  const handleModalClose = useCallback(() => {
+    if (!isDeleting) {
+      setIsDeleteModalOpen(false);
+      setDeleteError(undefined);
+      // Return focus to the delete button that triggered the modal
+      setTimeout(() => deleteButtonRef.current?.focus(), 0);
+    }
+  }, [isDeleting]);
 
-  const handleDeleteClick = (e: React.MouseEvent | React.KeyboardEvent) => {
-    // Prevent the card's onClick (select) from firing
-    e.stopPropagation();
-    setDeleteError(null);
-    setIsDeleteModalOpen(true);
-  };
-
-  const handleModalClose = () => {
-    if (localDeleting) return; // block close while in-flight
-    setIsDeleteModalOpen(false);
-    setDeleteError(null);
-  };
-
-  const handleConfirmDelete = async () => {
-    setDeleteError(null);
-    setLocalDeleting(true);
+  const handleConfirmDelete = useCallback(async () => {
+    setIsDeleting(true);
+    setDeleteError(undefined);
     try {
-      await onDelete?.(id);
+      await onDelete?.(last4);
       setIsDeleteModalOpen(false);
     } catch {
       setDeleteError('Failed to delete card. Please try again.');
     } finally {
-      setLocalDeleting(false);
+      setIsDeleting(false);
     }
-  };
+  }, [onDelete, last4]);
 
-  // ── Derived display values ─────────────────────────────────────────────────
-
-  const maskedDisplay = `•••• •••• •••• ${last4}`;
-  const cardAriaLabel = `${brandLabel} card ending in ${last4}`;
+  const maskedNumber = `**** **** **** ${last4}`;
+  const brandLabel = BRAND_LABEL[brand];
+  const expiryLabel = `Expires ${expiry}`;
   const deleteAriaLabel = `Delete card ending in ${last4}`;
-  const expiryAriaLabel = `Expires ${expiry}`;
+  const cardAriaLabel = `${brandLabel} card ending in ${last4}${
+    isSelected ? ', selected' : ''
+  }${disabled ? ', expired' : ''}`;
 
-  // ── Loading / deleting overlay ────────────────────────────────────────────
-
-  if (effectiveDeleting) {
-    return (
-      <>
-        <div className="payment-card payment-card--deleting" aria-busy="true">
-          <Card padding="md">
-            <div className="payment-card__overlay" role="status" aria-label={`Deleting card ending in ${last4}`}>
-              <Spinner size="sm" label={`Deleting card ending in ${last4}`} />
-              <span className="payment-card__overlay-text" aria-hidden="true">
-                Deleting…
-              </span>
-            </div>
-          </Card>
-        </div>
-
-        {/* Keep modal mounted so focus isn't lost mid-flight */}
-        <Modal
-          open={isDeleteModalOpen}
-          onClose={handleModalClose}
-          title="Delete card"
-        >
-          <ModalContent
-            last4={last4}
-            isDeleting={localDeleting}
-            deleteError={deleteError}
-            onConfirm={handleConfirmDelete}
-            onCancel={handleModalClose}
-          />
-        </Modal>
-      </>
-    );
-  }
-
-  if (isLoading) {
-    return (
-      <div className="payment-card payment-card--loading" aria-busy="true">
-        <Card padding="md">
-          <div className="payment-card__overlay" role="status" aria-label={`Loading card ending in ${last4}`}>
-            <Spinner size="sm" label={`Loading card ending in ${last4}`} />
-          </div>
-        </Card>
-      </div>
-    );
-  }
-
-  // ── Main render ───────────────────────────────────────────────────────────
+  const displayError = error || deleteError;
 
   return (
-    <>
-      <div
-        className={[
-          'payment-card',
-          isSelected ? 'payment-card--selected' : '',
-          disabled ? 'payment-card--disabled' : '',
-          error ? 'payment-card--error' : '',
-        ]
-          .filter(Boolean)
-          .join(' ')}
-      >
+    <div
+      style={{
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 'var(--spacing-2)',
+        fontFamily: 'var(--font-family-sans)',
+      }}
+    >
+      {/* ── Card container ── */}
+      <div style={{ position: 'relative' }}>
         <Card
-          padding="md"
           interactive={!disabled}
           selected={isSelected}
+          padding="md"
           onClick={!disabled ? handleSelect : undefined}
         >
-          <div className="payment-card__inner">
-            {/* ── Top row: brand icon + badge + delete ── */}
-            <div className="payment-card__top-row">
-              <div className="payment-card__brand">
-                <Icon
-                  name={brand}
-                  size="lg"
-                  aria-hidden={true}
-                />
-                <span className="payment-card__brand-label">{brandLabel}</span>
-              </div>
+          {/* Loading overlay — async selection in progress */}
+          {isLoading && (
+            <div
+              role="status"
+              aria-label="Loading card"
+              style={{
+                position: 'absolute',
+                inset: 0,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                background: 'rgba(255,255,255,0.75)',
+                borderRadius: 'var(--radius-md)',
+                zIndex: 2,
+              }}
+            >
+              <Spinner size="md" label="Loading card" />
+            </div>
+          )}
 
-              <div className="payment-card__actions">
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 'var(--spacing-4)',
+              opacity: disabled ? 0.5 : 1,
+              transition: 'opacity 0.15s ease',
+            }}
+          >
+            {/* Brand icon */}
+            <div
+              style={{
+                flexShrink: 0,
+                display: 'flex',
+                alignItems: 'center',
+              }}
+              aria-hidden="true"
+            >
+              <Icon name={brand} size="lg" aria-hidden={true} />
+            </div>
+
+            {/* Card details */}
+            <div
+              style={{
+                flex: 1,
+                minWidth: 0,
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 'var(--spacing-1)',
+              }}
+            >
+              {/* Masked card number */}
+              <span
+                aria-label={`Card ending in ${last4}`}
+                style={{
+                  fontFamily: 'var(--font-family-mono)',
+                  fontSize: 'var(--font-size-base)',
+                  fontWeight: 'var(--font-weight-semibold)' as React.CSSProperties['fontWeight'],
+                  color: 'var(--color-neutral-900)',
+                  letterSpacing: '0.08em',
+                  whiteSpace: 'nowrap',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                }}
+              >
+                {maskedNumber}
+              </span>
+
+              {/* Cardholder name + expiry row */}
+              <div
+                style={{
+                  display: 'flex',
+                  flexWrap: 'wrap',
+                  alignItems: 'center',
+                  gap: 'var(--spacing-2)',
+                }}
+              >
+                <span
+                  style={{
+                    fontSize: 'var(--font-size-sm)',
+                    color: 'var(--color-neutral-600)',
+                    fontWeight: 'var(--font-weight-regular)' as React.CSSProperties['fontWeight'],
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap',
+                    maxWidth: '160px',
+                  }}
+                >
+                  {cardholderName}
+                </span>
+
+                <span
+                  style={{
+                    color: 'var(--color-neutral-400)',
+                    fontSize: 'var(--font-size-xs)',
+                  }}
+                  aria-hidden="true"
+                >
+                  ·
+                </span>
+
+                <time
+                  dateTime={expiry}
+                  aria-label={expiryLabel}
+                  style={{
+                    fontSize: 'var(--font-size-sm)',
+                    color: 'var(--color-neutral-600)',
+                    whiteSpace: 'nowrap',
+                  }}
+                >
+                  {expiry}
+                </time>
+
+                {/* Expired badge */}
                 {disabled && (
                   <Badge variant="danger">Expired</Badge>
                 )}
-                {/* Stop propagation so delete click doesn't trigger card select */}
-                <div
-                  onClick={(e) => e.stopPropagation()}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' || e.key === ' ') e.stopPropagation();
-                  }}
-                  className="payment-card__delete-wrapper"
-                >
-                  <IconButton
-                    variant="destructive"
-                    size="md"
-                    icon={<Icon name="trash" aria-hidden={true} />}
-                    aria-label={deleteAriaLabel}
-                    onClick={handleDeleteClick as () => void}
-                    disabled={effectiveDeleting}
-                  />
-                </div>
               </div>
             </div>
 
-            {/* ── Card number ── */}
-            <div
-              className="payment-card__number"
-              aria-label={cardAriaLabel}
+            {/* Brand label (visually hidden, for screen readers) */}
+            <span
+              style={{
+                position: 'absolute',
+                width: '1px',
+                height: '1px',
+                padding: 0,
+                margin: '-1px',
+                overflow: 'hidden',
+                clip: 'rect(0,0,0,0)',
+                whiteSpace: 'nowrap',
+                border: 0,
+              }}
             >
-              <span aria-hidden="true">{maskedDisplay}</span>
-            </div>
+              {brandLabel}
+            </span>
 
-            {/* ── Bottom row: cardholder + expiry ── */}
-            <div className="payment-card__bottom-row">
-              <div className="payment-card__cardholder">
-                <span className="payment-card__meta-label">Cardholder</span>
-                <span className="payment-card__meta-value">{cardholderName}</span>
-              </div>
-              <div className="payment-card__expiry">
-                <span className="payment-card__meta-label">Expires</span>
-                <span
-                  className="payment-card__meta-value"
-                  aria-label={expiryAriaLabel}
-                >
-                  {expiry}
-                </span>
-              </div>
+            {/* Delete action — right side */}
+            <div
+              style={{ flexShrink: 0, marginLeft: 'auto' }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              {isDeleting ? (
+                <Spinner size="sm" label="Deleting card" />
+              ) : (
+                <IconButton
+                  ref={deleteButtonRef as React.Ref<HTMLButtonElement>}
+                  variant="destructive"
+                  size="lg"
+                  icon={<Icon name="trash" size="md" aria-hidden={true} />}
+                  aria-label={deleteAriaLabel}
+                  disabled={disabled || isLoading}
+                  onClick={handleDeleteIntent}
+                />
+              )}
             </div>
-
-            {/* ── Error message ── */}
-            {error && (
-              <div
-                className="payment-card__error"
-                role="alert"
-                aria-live="assertive"
-              >
-                <Icon name="alert" size="sm" aria-hidden={true} />
-                <span>{error}</span>
-              </div>
-            )}
           </div>
         </Card>
       </div>
+
+      {/* ── Error message ── */}
+      {displayError && (
+        <div
+          role="alert"
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 'var(--spacing-2)',
+            padding: 'var(--spacing-2) var(--spacing-3)',
+            borderRadius: 'var(--radius-sm)',
+            background: 'rgba(225, 75, 75, 0.08)',
+            border: '1px solid var(--color-danger)',
+          }}
+        >
+          <Icon
+            name="alert"
+            size="sm"
+            aria-hidden={true}
+            style={{ color: 'var(--color-danger)', flexShrink: 0 }}
+          />
+          <span
+            style={{
+              fontSize: 'var(--font-size-sm)',
+              color: 'var(--color-danger)',
+              fontWeight: 'var(--font-weight-medium)' as React.CSSProperties['fontWeight'],
+            }}
+          >
+            {displayError}
+          </span>
+        </div>
+      )}
 
       {/* ── Delete confirmation modal ── */}
       <Modal
@@ -261,69 +323,82 @@ export const PaymentCard: React.FC<PaymentCardProps> = ({
         onClose={handleModalClose}
         title="Delete card"
       >
-        <ModalContent
-          last4={last4}
-          isDeleting={localDeleting}
-          deleteError={deleteError}
-          onConfirm={handleConfirmDelete}
-          onCancel={handleModalClose}
-        />
+        <div
+          style={{
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 'var(--spacing-6)',
+            fontFamily: 'var(--font-family-sans)',
+          }}
+        >
+          <p
+            style={{
+              margin: 0,
+              fontSize: 'var(--font-size-base)',
+              color: 'var(--color-neutral-600)',
+              lineHeight: 'var(--line-height-normal)',
+            }}
+          >
+            Are you sure you want to delete the{' '}
+            <strong style={{ color: 'var(--color-neutral-900)' }}>
+              {brandLabel} card ending in {last4}
+            </strong>
+            ? This action cannot be undone.
+          </p>
+
+          {/* Inline delete error inside modal */}
+          {deleteError && (
+            <div
+              role="alert"
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 'var(--spacing-2)',
+                padding: 'var(--spacing-2) var(--spacing-3)',
+                borderRadius: 'var(--radius-sm)',
+                background: 'rgba(225, 75, 75, 0.08)',
+                border: '1px solid var(--color-danger)',
+              }}
+            >
+              <Icon name="alert" size="sm" aria-hidden={true} />
+              <span
+                style={{
+                  fontSize: 'var(--font-size-sm)',
+                  color: 'var(--color-danger)',
+                }}
+              >
+                {deleteError}
+              </span>
+            </div>
+          )}
+
+          <div
+            style={{
+              display: 'flex',
+              justifyContent: 'flex-end',
+              gap: 'var(--spacing-3)',
+              flexWrap: 'wrap',
+            }}
+          >
+            <Button
+              variant="secondary"
+              onClick={handleModalClose}
+              disabled={isDeleting}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              loading={isDeleting}
+              onClick={handleConfirmDelete}
+            >
+              Delete card
+            </Button>
+          </div>
+        </div>
       </Modal>
-    </>
+    </div>
   );
 };
-
-// ─── Modal content (extracted to keep JSX readable) ───────────────────────────
-
-interface ModalContentProps {
-  last4: string;
-  isDeleting: boolean;
-  deleteError: string | null;
-  onConfirm: () => void;
-  onCancel: () => void;
-}
-
-const ModalContent: React.FC<ModalContentProps> = ({
-  last4,
-  isDeleting,
-  deleteError,
-  onConfirm,
-  onCancel,
-}) => (
-  <div className="payment-card__modal-body">
-    <p className="payment-card__modal-description">
-      Are you sure you want to remove the card ending in{' '}
-      <strong>{last4}</strong>? This action cannot be undone.
-    </p>
-
-    {deleteError && (
-      <div
-        className="payment-card__modal-error"
-        role="alert"
-        aria-live="assertive"
-      >
-        <Icon name="alert" size="sm" aria-hidden={true} />
-        <span>{deleteError}</span>
-      </div>
-    )}
-
-    <div className="payment-card__modal-actions">
-      <Button
-        variant="secondary"
-        onClick={onCancel}
-        disabled={isDeleting}
-      >
-        Cancel
-      </Button>
-      <Button
-        variant="destructive"
-        loading={isDeleting}
-        onClick={onConfirm}
-      >
-        Delete card
-      </Button>
-    </div>
-  </div>
-);
 
 export default PaymentCard;

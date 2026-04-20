@@ -152,9 +152,9 @@ and the generated `Component.tsx`.
 
 | Example | States coverage | Token compliance | A11y score |
 |---|---|---|---|
-| Payment card | 7/7 | ✅ | 1/3 |
-| Transaction table | 4/12 | ✅ | 1/3 |
-| KYC wizard | 6/18 | ✅ | 2/3 |
+| Payment card | 7/7 | ✅ | 4/4 |
+| Transaction table | 4/13 | ✅ | 5/5 |
+| KYC wizard | 6/19 | ✅ | 7/7 |
 
 To regenerate all examples:
 
