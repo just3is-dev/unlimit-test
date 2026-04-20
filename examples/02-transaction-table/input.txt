@@ -1,0 +1,4 @@
+Transaction table with columns: date, amount, status, merchant name, payment method.
+Supports sorting by any column and pagination (25/50/100 per page).
+Status values: pending, completed, failed, refunded.
+Each status has a colored badge. Row click opens transaction details.

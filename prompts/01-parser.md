@@ -6,10 +6,9 @@ Extract only what is explicitly stated. Do NOT invent states, tokens, or constra
 The Analyzer agent (next stage) is responsible for identifying missing states and gaps.
 Scope is the single component described — do not reason about its container or parent page.
 
-## Input schema
-A plain-text description of a UI component written by a designer or product manager.
-
 ## Output schema
+Respond with valid JSON only — no markdown, no prose.
+
 ```json
 {
   "component": {
@@ -27,20 +26,20 @@ A plain-text description of a UI component written by a designer or product mana
 
 ## Constraints
 - `specified_states`: only states the user explicitly named (e.g. "selected", "disabled"). Do not add hover, focus, loading, error unless stated.
-- `tokens_referenced`: only token names explicitly mentioned (color names, spacing values). Usually empty.
-- `name`: derive a meaningful PascalCase name from the description (e.g. "PaymentCard", "TransactionTable").
-- `type`: pick the closest match from the allowed enum values.
+- `tokens_referenced`: only token names explicitly mentioned. Usually empty.
+- `name`: derive a meaningful PascalCase name (e.g. "PaymentCard", "TransactionTable").
+- `type`: pick the closest match — form | card | table | modal | page.
 
-## Few-shot examples
+## Example
 
-### Input
+Input:
 ```
 Payment card component. Shows card number (masked: **** **** **** 1234), expiry date,
 cardholder name, card brand icon (Visa/Mastercard/Amex). Used in merchant dashboard
 to display saved payment methods. User can select a card or delete it.
 ```
 
-### Output
+Output:
 ```json
 {
   "component": {
@@ -60,6 +59,3 @@ to display saved payment methods. User can select a card or delete it.
   }
 }
 ```
-
-## Input
-{{description}}

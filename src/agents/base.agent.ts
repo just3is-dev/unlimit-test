@@ -13,6 +13,13 @@ import { SchemaRetry } from '@/reliability/schema-retry';
  * and implements only `run()`. Everything else — prompt loading, LLM call,
  * schema retry — is handled here.
  *
+ * System / prompt split:
+ *   system = prompt file content (role, instructions, DS context, few-shot examples)
+ *   prompt = the actual user input for this call (description, parser output, etc.)
+ *
+ * On SchemaRetry failure the feedback is appended to the user prompt so the
+ * model receives both the original input and the correction instruction.
+ *
  * DI note: concrete agents are NestJS providers. They call `super()` with
  * the injected dependencies. The `@Inject` decorators here are used as
  * documentation; actual injection happens in each subclass constructor.
@@ -36,35 +43,35 @@ export abstract class BaseAgent<TInput, TOutput> {
   abstract run(input: TInput, context: PipelineContext): Promise<TOutput>;
 
   /**
-   * Convenience wrapper used by concrete agents:
-   *  1. Loads and renders the prompt template.
-   *  2. Calls the LLM via SchemaRetry (retry-with-feedback on Zod failure).
-   *  3. Returns the validated, typed output.
+   * Core LLM call with schema validation + retry-with-feedback.
    *
-   * @param promptName - e.g. '01-parser'
-   * @param variables  - Placeholder values for {{variable}} in the prompt
-   * @param schema     - Zod schema to validate and type the LLM response
-   * @param model      - Model identifier, e.g. process.env.MODEL_PARSER
-   * @param maxTokens  - Optional token cap (default: 4096)
+   * @param promptName  - Prompt file name without extension, e.g. '01-parser'
+   * @param systemVars  - Variables injected into the system prompt template
+   * @param userPrompt  - The actual user-turn input (description, prior stage JSON, etc.)
+   * @param schema      - Zod schema to validate the LLM response
+   * @param model       - Model identifier from ENV, e.g. process.env.MODEL_PARSER
+   * @param maxTokens   - Token cap for the completion (default: 4096)
    */
   protected async generate<S extends z.ZodType>(opts: {
     promptName: string;
-    variables: Record<string, string>;
+    systemVars: Record<string, string>;
+    userPrompt: string;
     schema: S;
     model: string;
     maxTokens?: number;
   }): Promise<z.infer<S>> {
-    const { promptName, variables, schema, model, maxTokens } = opts;
+    const { promptName, systemVars, userPrompt, schema, model, maxTokens } = opts;
 
-    // Load the system prompt (with DS context and few-shot examples injected)
-    const system = this.prompts.load(promptName, variables);
+    // System prompt: role + instructions + DS context + few-shot examples
+    const system = this.prompts.load(promptName, systemVars);
 
     return this.schemaRetry.run(
       async (feedbackPrompt?: string) => {
-        // On retry: append feedback to the user prompt so the model self-corrects
+        // On retry: append schema-error feedback so the model self-corrects.
+        // Original input stays visible so the model has full context.
         const prompt = feedbackPrompt
-          ? `${variables['description'] ?? variables['parser_output'] ?? variables['analyzer_output'] ?? ''}\n\n${feedbackPrompt}`
-          : (variables['description'] ?? variables['parser_output'] ?? variables['analyzer_output'] ?? '');
+          ? `${userPrompt}\n\n---\n${feedbackPrompt}`
+          : userPrompt;
 
         return this.llm.generateObject({ model, system, prompt, schema, maxTokens });
       },

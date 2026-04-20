@@ -1,0 +1,4 @@
+KYC verification wizard. 3 steps: personal info, document upload, selfie.
+Step indicator at the top. Back/Next navigation.
+Document upload supports drag-and-drop and file picker (PDF, JPG, PNG, max 10MB).
+Final step shows verification status: pending review, approved, rejected.

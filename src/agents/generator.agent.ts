@@ -3,19 +3,24 @@ import { Inject, Injectable } from '@nestjs/common';
 import { DesignSystemService } from '@/design-system/design-system.service';
 import { PromptLoaderService } from '@/llm/prompt-loader.service';
 import { LLM_PROVIDER, LLMProvider } from '@/llm/llm.provider';
-import { AnalyzerOutput, GeneratorOutput, GeneratorOutputSchema } from '@/pipeline/schemas';
 import { PipelineContext } from '@/pipeline/pipeline.context';
+import { AnalyzerOutput, GeneratorOutput, GeneratorOutputSchema } from '@/pipeline/schemas';
 import { SchemaRetry } from '@/reliability/schema-retry';
 
 import { BaseAgent } from './base.agent';
 
 /**
  * GeneratorAgent — Stage 3.
- * Generates a React component that covers all required states and uses
- * only DS tokens and components.
+ *
+ * Generates a React functional component that:
+ *   - Uses only DS tokens (var(--...)) and components (from @unlimit/ui)
+ *   - Covers all states from specified_states + missing_states
+ *   - Tags each state with kind: 'css' | 'functional' for CoverageCheck
+ *
+ * DS context injected: component specs, CSS variable values, conventions.
+ * maxTokens = 8192 — component code can be long.
  *
  * Model: MODEL_GENERATOR (Sonnet) — code generation with DS constraints.
- * Implemented in step 10.
  */
 @Injectable()
 export class GeneratorAgent extends BaseAgent<AnalyzerOutput, GeneratorOutput> {
@@ -35,19 +40,26 @@ export class GeneratorAgent extends BaseAgent<AnalyzerOutput, GeneratorOutput> {
       .map(([k, v]) => `${k}: ${v}`)
       .join('\n');
 
+    // Combine parser + analyzer output as the user-turn input
+    const userPrompt = JSON.stringify(
+      {
+        component: context.parserOutput?.component,
+        extraction: context.parserOutput?.extraction,
+        gap_analysis: input.gap_analysis,
+      },
+      null,
+      2,
+    );
+
     return this.generate({
       promptName: '03-generator',
-      variables: {
-        analyzer_output: JSON.stringify(
-          { ...context.parserOutput, gap_analysis: input.gap_analysis },
-          null,
-          2,
-        ),
+      systemVars: {
         component_specs: JSON.stringify(componentSpecs, null, 2),
         css_variables_with_values: cssWithValues,
         token_convention: '--{category}-{key}, e.g. --color-brand-primary',
         import_convention: `import { ComponentName } from '${importBase}'`,
       },
+      userPrompt,
       schema: GeneratorOutputSchema,
       model: process.env.MODEL_GENERATOR ?? 'claude-sonnet-4-6',
       maxTokens: 8192,

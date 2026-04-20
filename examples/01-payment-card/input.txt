@@ -1,0 +1,4 @@
+Payment card component. Shows card number (masked: **** **** **** 1234),
+expiry date, cardholder name, card brand icon (Visa/Mastercard/Amex).
+Used in merchant dashboard to display saved payment methods.
+User can select a card or delete it.
