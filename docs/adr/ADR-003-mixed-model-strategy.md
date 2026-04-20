@@ -13,7 +13,7 @@ design system constraints.
 
 **Same model for all stages (Sonnet)**  
 Simplest to configure. But uses the most expensive model for tasks that don't
-require it — Parser and LLMJudge are straightforward structured-output tasks.
+require it — Parser and QualityEvaluator are straightforward structured-output tasks.
 
 **Model per stage matched to task complexity**  
 Haiku for low-reasoning stages, Sonnet where inference depth matters. All
@@ -28,7 +28,7 @@ Assign models per stage based on task complexity:
 | Parser | Haiku | Structured extraction from short text |
 | Analyzer | Sonnet | Gap analysis requires DS knowledge and inference |
 | Generator | Sonnet | Code generation with DS constraints |
-| LLMJudge (opt-in) | Haiku | Scoring against a fixed rubric |
+| QualityEvaluator (opt-in) | Haiku | Scoring against a fixed rubric |
 
 `temperature = 0` for all stages — every stage uses `generateObject` with a Zod
 schema. Any temperature above 0 increases schema validation failures.

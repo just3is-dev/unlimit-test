@@ -23,7 +23,7 @@ optional LLM judge. Most failures are caught without any extra LLM call.
 ## Decision
 
 Deterministic-first: schema validation and regex-based checks run on every request.
-LLM judge is opt-in via `USE_LLM_JUDGE=true`.
+LLM judge is opt-in via `USE_QUALITY_EVALUATOR=true`.
 
 ## Rationale
 
@@ -40,6 +40,6 @@ JSX operators (`&&`, `?`) are sufficient for the generated code patterns in this
 
 - Schema validation, DS compliance, and state coverage are verified with no extra LLM
   calls — low latency, low cost, fully testable.
-- `LLMJudge` is additive: disabling it doesn't affect the pipeline output.
+- `QualityEvaluator` is additive: disabling it doesn't affect the pipeline output.
 - Regex-based `StateCoverageGuard` can produce false negatives for CSS states implemented
   via non-standard syntax (e.g. CSS-in-JS libraries).

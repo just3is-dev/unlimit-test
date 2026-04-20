@@ -4,8 +4,8 @@ import {
   AnalyzerOutput,
   FinalOutput,
   GeneratorOutput,
-  LLMJudgeOutput,
   ParserOutput,
+  QualityEvaluatorOutput,
   ValidatorOutput,
 } from './pipeline.schemas';
 
@@ -32,7 +32,7 @@ export class PipelineContext {
   analyzerOutput?: AnalyzerOutput;
   generatorOutput?: GeneratorOutput;
   validatorOutput?: ValidatorOutput;
-  judgeOutput?: LLMJudgeOutput;
+  qualityOutput?: QualityEvaluatorOutput;
 
   constructor(input: string, dsContext: DesignSystemContext) {
     this.input = input;
@@ -77,7 +77,7 @@ export class PipelineContext {
         tokens_used: generated_code.tokens_used,
       },
       validation,
-      ...(this.judgeOutput && { judge: this.judgeOutput }),
+      ...(this.qualityOutput && { quality: this.qualityOutput }),
     };
   }
 }

@@ -2,11 +2,15 @@ import { Inject, Injectable, Logger } from '@nestjs/common';
 
 import { LLM_PROVIDER, LLMProvider } from '@/llm/llm.provider';
 import { PromptLoaderService } from '@/llm/prompt-loader.service';
-import { GeneratorOutput, LLMJudgeOutput, LLMJudgeOutputSchema } from '@/pipeline/pipeline.schemas';
+import {
+  GeneratorOutput,
+  QualityEvaluatorOutput,
+  QualityEvaluatorOutputSchema,
+} from '@/pipeline/pipeline.schemas';
 import { SchemaRetry } from '@/reliability/schema-retry';
 
 /**
- * LLMJudge — opt-in Stage 5 (enabled via USE_LLM_JUDGE=true).
+ * QualityEvaluator — opt-in Stage 5 (enabled via USE_QUALITY_EVALUATOR=true).
  *
  * Provides a qualitative 0-100 a11y + code-quality assessment on top of the
  * deterministic ValidatorAgent. Returns a structured score with per-category
@@ -17,9 +21,9 @@ import { SchemaRetry } from '@/reliability/schema-retry';
  * See ADR-002 for the deterministic-first rationale.
  */
 @Injectable()
-export class LLMJudge {
-  private readonly logger = new Logger(LLMJudge.name);
-  private readonly enabled = process.env.USE_LLM_JUDGE === 'true';
+export class QualityEvaluator {
+  private readonly logger = new Logger(QualityEvaluator.name);
+  private readonly enabled = process.env.USE_QUALITY_EVALUATOR === 'true';
 
   constructor(
     @Inject(LLM_PROVIDER) private readonly llm: LLMProvider,
@@ -28,7 +32,7 @@ export class LLMJudge {
   ) {}
 
   /**
-   * Returns a structured judgement, or `undefined` if USE_LLM_JUDGE is not set.
+   * Returns a structured evaluation, or `undefined` if USE_QUALITY_EVALUATOR is not set.
    *
    * @param description  - Original component description (user input)
    * @param generator    - Full generator output (files + states + tokens)
@@ -36,21 +40,21 @@ export class LLMJudge {
   async evaluate(
     description: string,
     generator: GeneratorOutput,
-  ): Promise<LLMJudgeOutput | undefined> {
+  ): Promise<QualityEvaluatorOutput | undefined> {
     if (!this.enabled) return undefined;
 
-    this.logger.log('LLMJudge enabled — evaluating generated code');
+    this.logger.log('QualityEvaluator enabled — evaluating generated code');
 
     const { files, states_covered, tokens_used } = generator.generated_code;
 
-    const judgeInput = JSON.stringify({
+    const evaluatorInput = JSON.stringify({
       component_description: description,
       generated_code: files.map((f) => f.content).join('\n\n'),
       states_required: states_covered.map((s) => s.name),
       tokens_used,
     });
 
-    const system = this.prompts.load('04-validator-judge', { judge_input: judgeInput });
+    const system = this.prompts.load('04-validator-judge', { judge_input: evaluatorInput });
 
     const result = await this.schemaRetry.run(async (feedbackPrompt?: string) => {
       const prompt = feedbackPrompt
@@ -58,14 +62,14 @@ export class LLMJudge {
         : 'Evaluate the component above.';
 
       return this.llm.generateObject({
-        model: process.env.MODEL_JUDGE ?? 'claude-haiku-4-5',
+        model: process.env.MODEL_QUALITY_EVALUATOR ?? 'claude-haiku-4-5',
         system,
         prompt,
-        schema: LLMJudgeOutputSchema,
+        schema: QualityEvaluatorOutputSchema,
       });
-    }, LLMJudgeOutputSchema);
+    }, QualityEvaluatorOutputSchema);
 
-    this.logger.log(`LLMJudge score: ${result.score}/100`);
+    this.logger.log(`QualityEvaluator score: ${result.score}/100`);
     return result;
   }
 }

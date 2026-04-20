@@ -6,7 +6,7 @@ import { ParserAgent } from '@/agents/parser.agent';
 import { ValidatorAgent } from '@/agents/validator.agent';
 import { DesignSystemService } from '@/design-system/design-system.service';
 import { HallucinationGuard } from '@/reliability/hallucination-guard';
-import { LLMJudge } from '@/reliability/llm-judge';
+import { QualityEvaluator } from '@/reliability/quality-evaluator';
 import { StateCoverageGuard } from '@/reliability/state-coverage-guard';
 
 import { PipelineContext } from './pipeline.context';
@@ -36,7 +36,7 @@ export class PipelineService {
     private readonly analyzer: AnalyzerAgent,
     private readonly generator: GeneratorAgent,
     private readonly validator: ValidatorAgent,
-    private readonly judge: LLMJudge,
+    private readonly qualityEvaluator: QualityEvaluator,
     private readonly hallucinationGuard: HallucinationGuard,
     private readonly stateCoverageGuard: StateCoverageGuard,
   ) {}
@@ -84,8 +84,11 @@ export class PipelineService {
     this.logger.log('Stage 4/4: Validator');
     context.validatorOutput = await this.validator.run(context.generatorOutput, context);
 
-    // Stage 5 — LLMJudge (opt-in via USE_LLM_JUDGE=true)
-    context.judgeOutput = await this.judge.evaluate(description, context.generatorOutput);
+    // Stage 5 — QualityEvaluator (opt-in via USE_QUALITY_EVALUATOR=true)
+    context.qualityOutput = await this.qualityEvaluator.evaluate(
+      description,
+      context.generatorOutput,
+    );
 
     this.logger.log('Pipeline complete');
     return context.toFinalOutput();

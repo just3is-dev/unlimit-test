@@ -33,8 +33,8 @@ curl -X POST http://localhost:3000/pipeline \
 | `MODEL_PARSER` | | `claude-haiku-4-5` | Model for Parser stage |
 | `MODEL_ANALYZER` | | `claude-sonnet-4-6` | Model for Analyzer stage |
 | `MODEL_GENERATOR` | | `claude-sonnet-4-6` | Model for Generator stage |
-| `MODEL_JUDGE` | | `claude-haiku-4-5` | Model for LLMJudge stage |
-| `USE_LLM_JUDGE` | | `false` | Enable opt-in a11y scoring stage |
+| `MODEL_QUALITY_EVALUATOR` | | `claude-haiku-4-5` | Model for QualityEvaluator stage |
+| `USE_QUALITY_EVALUATOR` | | `false` | Enable opt-in a11y scoring stage |
 | `MAX_RETRIES` | | `3` | Schema retry attempts per stage |
 
 ### Tests
@@ -171,7 +171,7 @@ Validation runs without any LLM calls:
 - **SchemaRetry** — wraps every LLM call; re-prompts with Zod error details on failure
 - **HallucinationGuard** — checks generated code against DS token and component allow-lists
 - **StateCoverageGuard** — verifies every required state is implemented in the generated code
-- **LLMJudge** — opt-in a11y scoring via `USE_LLM_JUDGE=true` (uses Haiku)
+- **QualityEvaluator** — opt-in a11y scoring via `USE_QUALITY_EVALUATOR=true` (uses Haiku)
 
 ### Model strategy
 
@@ -180,9 +180,9 @@ Validation runs without any LLM calls:
 | Parser    | Haiku  | Structured extraction — low reasoning load  |
 | Analyzer  | Sonnet | Gap analysis requires DS knowledge          |
 | Generator | Sonnet | Code generation with DS constraints         |
-| LLMJudge  | Haiku  | Rubric scoring — structured output          |
+| QualityEvaluator  | Haiku  | Rubric scoring — structured output          |
 
-All models are overridable via ENV: `MODEL_PARSER`, `MODEL_ANALYZER`, `MODEL_GENERATOR`, `MODEL_JUDGE`.
+All models are overridable via ENV: `MODEL_PARSER`, `MODEL_ANALYZER`, `MODEL_GENERATOR`, `MODEL_QUALITY_EVALUATOR`.
 
 ---
 
@@ -252,7 +252,7 @@ collaboratively with AI tooling throughout the process.
 - *Parser* — structured extraction of component type, states, tokens, and business context from free-text descriptions
 - *Analyzer* — gap analysis: identifying missing states and accessibility issues not mentioned in the description
 - *Generator* — React component generation using design system constraints
-- *LLMJudge (opt-in)* — accessibility scoring with per-category breakdown
+- *QualityEvaluator (opt-in)* — accessibility scoring with per-category breakdown
 
 **What worked well:**
 

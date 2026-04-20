@@ -7,7 +7,7 @@ import { ValidatorAgent } from '@/agents/validator.agent';
 import { DesignSystemModule } from '@/design-system/design-system.module';
 import { LlmModule } from '@/llm/llm.module';
 import { HallucinationGuard } from '@/reliability/hallucination-guard';
-import { LLMJudge } from '@/reliability/llm-judge';
+import { QualityEvaluator } from '@/reliability/quality-evaluator';
 import { SchemaRetry } from '@/reliability/schema-retry';
 import { StateCoverageGuard } from '@/reliability/state-coverage-guard';
 
@@ -21,7 +21,7 @@ import { PipelineService } from './pipeline.service';
     SchemaRetry,
     HallucinationGuard,
     StateCoverageGuard,
-    LLMJudge,
+    QualityEvaluator,
     ParserAgent,
     AnalyzerAgent,
     GeneratorAgent,

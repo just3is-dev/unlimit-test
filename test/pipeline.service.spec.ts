@@ -68,7 +68,7 @@ describe('PipelineService (stub agents)', () => {
       }),
     };
 
-    // LLMJudge is opt-in — returns undefined when USE_LLM_JUDGE is not set
+    // QualityEvaluator is opt-in — returns undefined when USE_QUALITY_EVALUATOR is not set
     const mockJudge = { evaluate: jest.fn().mockResolvedValue(undefined) };
 
     // Guards always pass in unit tests — feedback loop is tested separately

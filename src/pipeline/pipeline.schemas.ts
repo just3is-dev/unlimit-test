@@ -110,10 +110,10 @@ export const ValidatorOutputSchema = z.object({
 export type ValidatorOutput = z.infer<typeof ValidatorOutputSchema>;
 
 // ---------------------------------------------------------------------------
-// Stage 5 — LLMJudge (opt-in, USE_LLM_JUDGE=true)
+// Stage 5 — QualityEvaluator (opt-in, USE_QUALITY_EVALUATOR=true)
 // ---------------------------------------------------------------------------
 
-export const LLMJudgeOutputSchema = z.object({
+export const QualityEvaluatorOutputSchema = z.object({
   score: z.number().int().min(0).max(100),
   breakdown: z.object({
     aria_correctness: z.number().int().min(0).max(30),
@@ -126,7 +126,7 @@ export const LLMJudgeOutputSchema = z.object({
   strengths: z.array(z.string()),
 });
 
-export type LLMJudgeOutput = z.infer<typeof LLMJudgeOutputSchema>;
+export type QualityEvaluatorOutput = z.infer<typeof QualityEvaluatorOutputSchema>;
 
 // ---------------------------------------------------------------------------
 // Final output — task.md-compatible combined schema
@@ -148,8 +148,8 @@ export const FinalOutputSchema = z.object({
     tokens_used: z.array(z.string()),
   }),
   validation: ValidatorOutputSchema.shape.validation,
-  /** Present only when USE_LLM_JUDGE=true. */
-  judge: LLMJudgeOutputSchema.optional(),
+  /** Present only when USE_QUALITY_EVALUATOR=true. */
+  quality: QualityEvaluatorOutputSchema.optional(),
 });
 
 export type FinalOutput = z.infer<typeof FinalOutputSchema>;
