@@ -10,8 +10,6 @@
     "start:debug": "nest start --debug --watch",
     "start:prod": "node dist/main",
     "cli": "ts-node -r tsconfig-paths/register src/cli.ts",
-    "mcp": "ts-node -r tsconfig-paths/register src/mcp.ts",
-    "run:example": "ts-node -r tsconfig-paths/register src/cli.ts",
     "run:examples": "ts-node -r tsconfig-paths/register scripts/run-examples.ts",
     "test": "jest",
     "test:watch": "jest --watch",

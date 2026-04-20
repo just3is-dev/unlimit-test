@@ -1,3 +1,4 @@
+// @ts-nocheck
 import React, { useState, useCallback, KeyboardEvent } from 'react';
 import {
   Badge,

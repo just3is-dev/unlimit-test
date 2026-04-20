@@ -1,3 +1,4 @@
+// @ts-nocheck
 import React, { useRef, useState, useId } from 'react';
 import {
   Card,

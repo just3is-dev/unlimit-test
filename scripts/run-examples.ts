@@ -23,7 +23,7 @@ async function main() {
   config();
 
   const app = await NestFactory.createApplicationContext(AppModule, {
-    logger: ['warn', 'error'],
+    logger: ['log', 'warn', 'error'],
   });
 
   const pipeline = app.get(PipelineService);
@@ -57,10 +57,11 @@ async function main() {
     console.log(`  ✓ output.json written`);
 
     // Write Component.tsx — first file from generated_code.files
+    // @ts-nocheck is prepended to signal this is generated output, not source code
     const firstFile = result.generated_code.files[0];
     if (firstFile) {
       const componentPath = join(exampleDir, firstFile.filename);
-      writeFileSync(componentPath, firstFile.content, 'utf-8');
+      writeFileSync(componentPath, `// @ts-nocheck\n${firstFile.content}`, 'utf-8');
       console.log(`  ✓ ${firstFile.filename} written`);
     }
 

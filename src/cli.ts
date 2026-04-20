@@ -44,7 +44,7 @@ async function main() {
 
   // Bootstrap NestJS in standalone mode — no HTTP server, just DI
   const app = await NestFactory.createApplicationContext(AppModule, {
-    logger: ['warn', 'error'],
+    logger: ['log', 'warn', 'error'],
   });
 
   try {
