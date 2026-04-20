@@ -22,7 +22,9 @@ The HTTP API is also available:
 npm run start:dev             # starts on port 3000
 curl -X POST http://localhost:3000/pipeline \
   -H "Content-Type: application/json" \
-  -d '{"description": "Payment card component..."}'
+  -d '{
+    "description": "Payment card component. Shows card number (masked: **** **** **** 1234), expiry date, cardholder name, card brand icon (Visa/Mastercard/Amex). Used in merchant dashboard to display saved payment methods. User can select a card or delete it."
+  }'
 ```
 
 ### Environment variables
