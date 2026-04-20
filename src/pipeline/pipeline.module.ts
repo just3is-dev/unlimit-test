@@ -11,10 +11,12 @@ import { HallucinationGuard } from '@/reliability/hallucination-guard';
 import { LLMJudge } from '@/reliability/llm-judge';
 import { SchemaRetry } from '@/reliability/schema-retry';
 
+import { PipelineController } from './pipeline.controller';
 import { PipelineService } from './pipeline.service';
 
 @Module({
   imports: [DesignSystemModule, LlmModule],
+  controllers: [PipelineController],
   providers: [
     SchemaRetry,
     HallucinationGuard,
