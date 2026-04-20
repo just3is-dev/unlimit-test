@@ -6,6 +6,8 @@ import { ParserAgent } from '@/agents/parser.agent';
 import { ValidatorAgent } from '@/agents/validator.agent';
 import { DesignSystemModule } from '@/design-system/design-system.module';
 import { LlmModule } from '@/llm/llm.module';
+import { CoverageCheck } from '@/reliability/coverage-check';
+import { HallucinationGuard } from '@/reliability/hallucination-guard';
 import { SchemaRetry } from '@/reliability/schema-retry';
 
 import { PipelineService } from './pipeline.service';
@@ -14,6 +16,8 @@ import { PipelineService } from './pipeline.service';
   imports: [DesignSystemModule, LlmModule],
   providers: [
     SchemaRetry,
+    HallucinationGuard,
+    CoverageCheck,
     ParserAgent,
     AnalyzerAgent,
     GeneratorAgent,
