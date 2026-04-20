@@ -8,6 +8,8 @@ accessibility validation.
 
 ## Quick Start
 
+**Prerequisites:** Node.js >=20.13
+
 ```bash
 cp .env.example .env          # add ANTHROPIC_API_KEY
 npm install
