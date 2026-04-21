@@ -7,6 +7,6 @@
 export type AttemptFn<T> = (feedbackPrompt?: string) => Promise<T>;
 
 export interface SchemaRetryOptions {
-  /** How many total attempts (1 = no retries). Defaults to MAX_SCHEMA_RETRIES env or 3. */
+  /** Total attempts including the first (1 = no retries, 3 = first + 2 retries). Defaults to MAX_SCHEMA_RETRIES env or 3. */
   maxAttempts?: number;
 }
