@@ -53,6 +53,6 @@ component.
 
 Three ADRs in `docs/adr/` explain the non-obvious choices:
 
-- **ADR-001** — why manual orchestration instead of LangChain/LlamaIndex
-- **ADR-002** — why validation is deterministic instead of LLM-based
-- **ADR-003** — why different models per stage (cost vs. quality trade-off)
+- **[ADR-001](docs/adr/ADR-001-manual-orchestration.md)** — why manual orchestration instead of LangChain/LlamaIndex
+- **[ADR-002](docs/adr/ADR-002-deterministic-first-reliability.md)** — why validation is deterministic instead of LLM-based
+- **[ADR-003](docs/adr/ADR-003-mixed-model-strategy.md)** — why different models per stage (cost vs. quality trade-off)
