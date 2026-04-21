@@ -5,9 +5,9 @@
 
 ## Context
 
-A 3-stage LLM pipeline makes 3 LLM calls per request (Parser, Analyzer, Generator).
-Each stage has a different reasoning load: structured extraction is simpler than code
-generation with design system constraints. Validator is deterministic — no LLM call.
+The pipeline has 4 stages overall; only the first 3 involve LLM calls (Parser, Analyzer,
+Generator) — Validator is deterministic. Each LLM stage has a different reasoning load:
+structured extraction is simpler than code generation with design system constraints.
 
 ## Options Considered
 

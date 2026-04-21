@@ -11,7 +11,7 @@ without making quality checks expensive or non-deterministic themselves.
 
 ## Options Considered
 
-**LLM-based quality evaluator for all validation**  
+**Single LLM-based validator across all checks**  
 A single LLM call scores every aspect of the output. Simple to implement, flexible.
 But it adds latency and cost to every request, is non-deterministic, and is hard to
 unit-test.

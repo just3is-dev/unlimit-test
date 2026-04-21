@@ -266,7 +266,7 @@ collaboratively with AI tooling throughout the process.
 **What worked well:**
 
 - `generateObject` with Zod schemas produces reliable structured output; schema failures are rare and self-correct via `SchemaRetry`
-- Haiku is sufficient for extraction and scoring tasks — no quality loss observed compared to Sonnet for those stages
+- Haiku is sufficient for the Parser extraction stage — no quality loss observed compared to Sonnet
 - The Analyzer reliably surfaces missing states (hover, focus, loading, error) even when the input description says nothing about them
 
 **What didn't work as well:**
