@@ -47,3 +47,8 @@ for a11y — are sufficient for the generated code patterns in this project.
   verified with no extra LLM calls — low latency, low cost, fully testable.
 - Regex-based guards can produce false negatives for states or attributes implemented
   via non-standard syntax (e.g. CSS-in-JS libraries, dynamic prop spreading).
+- **Best-of-N generation** was considered but not implemented: the retry receives
+  targeted guard feedback, so the latest output is almost always better than the
+  previous one. With more retries it would become worthwhile — but raises a non-trivial
+  question of how to compare candidates, since guard metrics are heterogeneous (token
+  compliance is binary, state coverage is a ratio, a11y is a rule count).
