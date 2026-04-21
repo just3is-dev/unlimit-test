@@ -3,8 +3,6 @@ import { Injectable, Logger } from '@nestjs/common';
 
 import type { AttemptFn, SchemaRetryOptions } from './schema-retry.types';
 
-export type { AttemptFn, SchemaRetryOptions } from './schema-retry.types';
-
 /**
  * SchemaRetry — reliability wrapper for LLM calls that must conform to a Zod schema.
  *
