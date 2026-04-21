@@ -30,8 +30,12 @@ export class PipelineService {
   /**
    * How many times to retry the Generator after a guard failure.
    * Total Generator calls = 1 (initial) + MAX_GENERATOR_RETRIES.
+   * Overridable via MAX_GENERATOR_RETRIES env variable.
    */
-  private static readonly MAX_GENERATOR_RETRIES = 1;
+  private static readonly MAX_GENERATOR_RETRIES = Math.max(
+    0,
+    parseInt(process.env.MAX_GENERATOR_RETRIES ?? '1', 10),
+  );
 
   constructor(
     private readonly ds: DesignSystemService,

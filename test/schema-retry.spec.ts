@@ -11,8 +11,8 @@ describe('SchemaRetry', () => {
   let retry: SchemaRetry;
 
   beforeEach(() => {
-    // Set MAX_RETRIES via env so SchemaRetry picks it up
-    process.env.MAX_RETRIES = '3';
+    // Set MAX_SCHEMA_RETRIES via env so SchemaRetry picks it up
+    process.env.MAX_SCHEMA_RETRIES = '3';
     retry = new SchemaRetry();
   });
 
@@ -68,7 +68,7 @@ describe('SchemaRetry', () => {
   });
 
   it('respects maxAttempts override over env default', async () => {
-    process.env.MAX_RETRIES = '5';
+    process.env.MAX_SCHEMA_RETRIES = '5';
     retry = new SchemaRetry();
 
     const fn = jest.fn().mockResolvedValue({ wrong: true });

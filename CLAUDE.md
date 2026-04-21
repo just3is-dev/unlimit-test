@@ -67,7 +67,7 @@ retry-with-feedback via `SchemaRetry`.
 
 ### LLM call reliability (`src/llm/schema-retry.ts`)
 
-**`SchemaRetry`** wraps every `generateObject` call inside `BaseAgent.generate()`. On Zod schema failure it extracts per-field errors and re-prompts the model with specific correction instructions (up to `MAX_RETRIES` attempts). Transparent to the caller — agents always receive a validated result or an exception.
+**`SchemaRetry`** wraps every `generateObject` call inside `BaseAgent.generate()`. On Zod schema failure it extracts per-field errors and re-prompts the model with specific correction instructions (up to `MAX_SCHEMA_RETRIES` attempts). Transparent to the caller — agents always receive a validated result or an exception.
 
 ### Guard sub-system (`src/reliability/`)
 

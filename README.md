@@ -35,7 +35,8 @@ curl -X POST http://localhost:3000/pipeline \
 | `MODEL_PARSER` | | `claude-haiku-4-5` | Model for Parser stage |
 | `MODEL_ANALYZER` | | `claude-sonnet-4-6` | Model for Analyzer stage |
 | `MODEL_GENERATOR` | | `claude-sonnet-4-6` | Model for Generator stage |
-| `MAX_RETRIES` | | `3` | Schema retry attempts per stage |
+| `MAX_SCHEMA_RETRIES` | | `3` | Schema validation retry attempts per LLM call |
+| `MAX_GENERATOR_RETRIES` | | `1` | Guard-feedback retries for Generator stage |
 
 ### Tests
 
@@ -170,7 +171,7 @@ sequenceDiagram
 ### Reliability sub-system
 
 **SchemaRetry** wraps every LLM call — on Zod schema failure it re-prompts with per-field
-error details (up to `MAX_RETRIES` attempts). Used by every agent via `BaseAgent.generate()`.
+error details (up to `MAX_SCHEMA_RETRIES` attempts). Used by every agent via `BaseAgent.generate()`.
 
 Three deterministic guards run in the Generator retry loop without any LLM calls:
 

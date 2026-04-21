@@ -24,7 +24,7 @@ export class SchemaRetry {
 
   private readonly defaultMaxAttempts: number = Math.max(
     1,
-    parseInt(process.env.MAX_RETRIES ?? '3', 10),
+    parseInt(process.env.MAX_SCHEMA_RETRIES ?? '3', 10),
   );
 
   async run<S extends z.ZodType>(
