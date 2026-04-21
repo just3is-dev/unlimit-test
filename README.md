@@ -122,7 +122,7 @@ flowchart TD
 
 Each stage has a typed Zod schema. Structured output is handled by the Vercel AI SDK
 (`generateObject`). On schema validation failure, `SchemaRetry` re-prompts the model
-with per-field error feedback (up to 3 attempts).
+with per-field error feedback (up to `MAX_SCHEMA_RETRIES` attempts).
 
 ### Request flow with self-correction
 
@@ -148,7 +148,7 @@ sequenceDiagram
     PS->>GA: run()
     GA-->>PS: GeneratorOutput
 
-    loop guard-feedback retry (max 1 retry)
+    loop guard-feedback retry (MAX_GENERATOR_RETRIES)
         PS->>HG: check(files)
         PS->>SC: check(requiredStates, files)
         PS->>AG: check(files)
